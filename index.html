@@ -1,0 +1,2628 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>SparkStore — Shop Inventory & Low-Stock Alerts</title>
+  <!-- Google Fonts -->
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet">
+  <!-- Chart.js for reports -->
+  <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.min.js"></script>
+  <!-- HTML5 QR / Barcode Scanner -->
+  <script src="https://unpkg.com/html5-qrcode" type="text/javascript"></script>
+
+  <style>
+    :root {
+      --bg: #090d16;
+      --bg-card: #111827;
+      --bg-card-alt: #162033;
+      --bg-input: #1a2438;
+      --border: rgba(255, 255, 255, 0.08);
+      --border-focus: #6366f1;
+      --text: #f3f4f6;
+      --text-muted: #9ca3af;
+      --text-dim: #6b7280;
+      --primary: #6366f1;
+      --primary-hover: #4f46e5;
+      --primary-glow: rgba(99, 102, 241, 0.25);
+      --success: #10b981;
+      --success-bg: rgba(16, 185, 129, 0.12);
+      --warning: #f59e0b;
+      --warning-bg: rgba(245, 158, 11, 0.12);
+      --danger: #ef4444;
+      --danger-bg: rgba(239, 68, 68, 0.14);
+      --info: #06b6d4;
+      --radius: 12px;
+      --radius-sm: 8px;
+      --radius-lg: 16px;
+      --shadow: 0 10px 25px -5px rgba(0, 0, 0, 0.5), 0 8px 10px -6px rgba(0, 0, 0, 0.5);
+    }
+
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body {
+      font-family: 'Plus Jakarta Sans', system-ui, -apple-system, sans-serif;
+      background: var(--bg);
+      color: var(--text);
+      line-height: 1.5;
+      min-height: 100vh;
+      display: flex;
+      flex-direction: column;
+    }
+
+    /* Scrollbar */
+    ::-webkit-scrollbar { width: 8px; height: 8px; }
+    ::-webkit-scrollbar-track { background: var(--bg); }
+    ::-webkit-scrollbar-thumb { background: #26344d; border-radius: 4px; }
+    ::-webkit-scrollbar-thumb:hover { background: #374766; }
+
+    /* Layout */
+    .app-header {
+      background: rgba(17, 24, 39, 0.85);
+      backdrop-filter: blur(12px);
+      border-bottom: 1px solid var(--border);
+      position: sticky;
+      top: 0;
+      z-index: 40;
+    }
+
+    .header-container {
+      max-width: 1400px;
+      margin: 0 auto;
+      padding: 0.875rem 1.5rem;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 1rem;
+      flex-wrap: wrap;
+    }
+
+    .brand {
+      display: flex;
+      align-items: center;
+      gap: 0.75rem;
+      text-decoration: none;
+      color: inherit;
+    }
+
+    .brand-icon {
+      width: 40px;
+      height: 40px;
+      border-radius: 10px;
+      background: linear-gradient(135deg, #6366f1 0%, #a855f7 100%);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      box-shadow: 0 0 15px var(--primary-glow);
+    }
+
+    .brand-title {
+      font-size: 1.25rem;
+      font-weight: 800;
+      letter-spacing: -0.025em;
+      background: linear-gradient(135deg, #ffffff 30%, #9ca3af 100%);
+      -webkit-background-clip: text;
+      -webkit-text-fill-color: transparent;
+      display: flex;
+      align-items: center;
+      gap: 0.5rem;
+    }
+
+    .brand-subtitle {
+      font-size: 0.75rem;
+      color: var(--text-muted);
+      font-weight: 500;
+    }
+
+    .live-pulse {
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      font-size: 0.75rem;
+      font-weight: 600;
+      padding: 4px 10px;
+      border-radius: 9999px;
+      background: rgba(16, 185, 129, 0.1);
+      color: #34d399;
+      border: 1px solid rgba(16, 185, 129, 0.2);
+    }
+
+    .live-pulse .dot {
+      width: 8px;
+      height: 8px;
+      border-radius: 50%;
+      background: #10b981;
+      box-shadow: 0 0 8px #10b981;
+      animation: pulse 2s infinite;
+    }
+
+    @keyframes pulse {
+      0% { transform: scale(0.95); opacity: 0.8; }
+      50% { transform: scale(1.2); opacity: 1; }
+      100% { transform: scale(0.95); opacity: 0.8; }
+    }
+
+    /* Navigation Tabs */
+    .nav-tabs {
+      display: flex;
+      gap: 0.35rem;
+      background: rgba(0, 0, 0, 0.3);
+      padding: 4px;
+      border-radius: var(--radius-sm);
+      border: 1px solid var(--border);
+    }
+
+    .tab-btn {
+      background: transparent;
+      border: none;
+      color: var(--text-muted);
+      font-family: inherit;
+      font-size: 0.875rem;
+      font-weight: 600;
+      padding: 0.5rem 1rem;
+      border-radius: 6px;
+      cursor: pointer;
+      display: flex;
+      align-items: center;
+      gap: 0.5rem;
+      transition: all 0.2s ease;
+      white-space: nowrap;
+    }
+
+    .tab-btn:hover {
+      color: var(--text);
+      background: rgba(255, 255, 255, 0.05);
+    }
+
+    .tab-btn.active {
+      background: var(--primary);
+      color: #ffffff;
+      box-shadow: 0 2px 8px var(--primary-glow);
+    }
+
+    .badge-count {
+      background: var(--danger);
+      color: white;
+      font-size: 0.7rem;
+      font-weight: 700;
+      padding: 1px 6px;
+      border-radius: 9999px;
+      min-width: 18px;
+      text-align: center;
+      animation: alertPulse 1.5s infinite;
+    }
+
+    @keyframes alertPulse {
+      0%, 100% { transform: scale(1); }
+      50% { transform: scale(1.15); }
+    }
+
+    .header-actions {
+      display: flex;
+      align-items: center;
+      gap: 0.5rem;
+    }
+
+    /* Buttons */
+    .btn {
+      font-family: inherit;
+      font-size: 0.875rem;
+      font-weight: 600;
+      padding: 0.55rem 1.1rem;
+      border-radius: var(--radius-sm);
+      border: 1px solid transparent;
+      cursor: pointer;
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      gap: 0.5rem;
+      transition: all 0.2s ease;
+    }
+
+    .btn-primary {
+      background: var(--primary);
+      color: #fff;
+    }
+    .btn-primary:hover {
+      background: var(--primary-hover);
+      box-shadow: 0 4px 12px var(--primary-glow);
+    }
+
+    .btn-success {
+      background: var(--success);
+      color: #fff;
+    }
+    .btn-success:hover { background: #059669; }
+
+    .btn-secondary {
+      background: var(--bg-card-alt);
+      color: var(--text);
+      border: 1px solid var(--border);
+    }
+    .btn-secondary:hover {
+      background: #1f2b42;
+      border-color: rgba(255, 255, 255, 0.2);
+    }
+
+    .btn-danger {
+      background: var(--danger-bg);
+      color: #f87171;
+      border: 1px solid rgba(239, 68, 68, 0.3);
+    }
+    .btn-danger:hover {
+      background: var(--danger);
+      color: #fff;
+    }
+
+    .btn-sm {
+      padding: 0.35rem 0.75rem;
+      font-size: 0.8rem;
+    }
+
+    .btn-icon {
+      padding: 0.5rem;
+      border-radius: var(--radius-sm);
+    }
+
+    /* Main Container */
+    .main-content {
+      max-width: 1400px;
+      width: 100%;
+      margin: 0 auto;
+      padding: 1.5rem;
+      flex: 1;
+    }
+
+    .view-section {
+      display: none;
+      animation: fadeIn 0.25s ease-in-out;
+    }
+    .view-section.active { display: block; }
+
+    @keyframes fadeIn {
+      from { opacity: 0; transform: translateY(6px); }
+      to { opacity: 1; transform: translateY(0); }
+    }
+
+    /* Stat Cards Grid */
+    .stats-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+      gap: 1.25rem;
+      margin-bottom: 1.5rem;
+    }
+
+    .stat-card {
+      background: var(--bg-card);
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      padding: 1.25rem;
+      position: relative;
+      overflow: hidden;
+      transition: transform 0.2s ease, border-color 0.2s ease;
+    }
+    .stat-card:hover {
+      transform: translateY(-2px);
+      border-color: rgba(255, 255, 255, 0.15);
+    }
+
+    .stat-card::before {
+      content: '';
+      position: absolute;
+      top: 0;
+      left: 0;
+      width: 4px;
+      height: 100%;
+      background: var(--primary);
+    }
+    .stat-card.stat-success::before { background: var(--success); }
+    .stat-card.stat-warning::before { background: var(--warning); }
+    .stat-card.stat-danger::before { background: var(--danger); }
+
+    .stat-label {
+      font-size: 0.8rem;
+      font-weight: 600;
+      text-transform: uppercase;
+      letter-spacing: 0.05em;
+      color: var(--text-muted);
+      margin-bottom: 0.35rem;
+    }
+
+    .stat-val {
+      font-size: 1.75rem;
+      font-weight: 800;
+      letter-spacing: -0.03em;
+      color: #fff;
+    }
+
+    .stat-sub {
+      font-size: 0.75rem;
+      color: var(--text-dim);
+      margin-top: 0.25rem;
+    }
+
+    /* Filter & Search Bar */
+    .toolbar {
+      background: var(--bg-card);
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      padding: 1rem;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 1rem;
+      flex-wrap: wrap;
+      margin-bottom: 1.25rem;
+    }
+
+    .search-group {
+      display: flex;
+      align-items: center;
+      gap: 0.75rem;
+      flex: 1;
+      min-width: 280px;
+    }
+
+    .input-wrapper {
+      position: relative;
+      flex: 1;
+    }
+
+    .input-icon {
+      position: absolute;
+      left: 0.875rem;
+      top: 50%;
+      transform: translateY(-50%);
+      color: var(--text-dim);
+      pointer-events: none;
+    }
+
+    .form-control {
+      width: 100%;
+      background: var(--bg-input);
+      border: 1px solid var(--border);
+      border-radius: var(--radius-sm);
+      color: var(--text);
+      font-family: inherit;
+      font-size: 0.875rem;
+      padding: 0.6rem 0.875rem 0.6rem 2.25rem;
+      transition: border-color 0.2s ease, box-shadow 0.2s ease;
+    }
+    .form-control:focus {
+      outline: none;
+      border-color: var(--border-focus);
+      box-shadow: 0 0 0 3px var(--primary-glow);
+    }
+
+    .form-select {
+      background: var(--bg-input);
+      border: 1px solid var(--border);
+      border-radius: var(--radius-sm);
+      color: var(--text);
+      font-family: inherit;
+      font-size: 0.875rem;
+      padding: 0.6rem 0.875rem;
+      cursor: pointer;
+    }
+    .form-select:focus { outline: none; border-color: var(--border-focus); }
+
+    .category-chips {
+      display: flex;
+      gap: 0.5rem;
+      overflow-x: auto;
+      padding-bottom: 0.25rem;
+      max-width: 100%;
+    }
+
+    .chip {
+      background: var(--bg-input);
+      border: 1px solid var(--border);
+      color: var(--text-muted);
+      font-size: 0.75rem;
+      font-weight: 600;
+      padding: 0.35rem 0.75rem;
+      border-radius: 9999px;
+      cursor: pointer;
+      white-space: nowrap;
+      transition: all 0.2s ease;
+    }
+    .chip:hover { color: var(--text); background: rgba(255,255,255,0.06); }
+    .chip.active {
+      background: var(--primary);
+      border-color: var(--primary);
+      color: #fff;
+    }
+
+    /* Data Table */
+    .table-container {
+      background: var(--bg-card);
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      overflow: hidden;
+      box-shadow: var(--shadow);
+    }
+
+    .data-table {
+      width: 100%;
+      border-collapse: collapse;
+      text-align: left;
+      font-size: 0.875rem;
+    }
+
+    .data-table th {
+      background: var(--bg-card-alt);
+      color: var(--text-muted);
+      font-weight: 600;
+      padding: 0.875rem 1rem;
+      border-bottom: 1px solid var(--border);
+      white-space: nowrap;
+    }
+
+    .data-table td {
+      padding: 0.875rem 1rem;
+      border-bottom: 1px solid var(--border);
+      color: var(--text);
+      vertical-align: middle;
+    }
+
+    .data-table tr:last-child td { border-bottom: none; }
+    .data-table tbody tr {
+      transition: background 0.15s ease;
+    }
+    .data-table tbody tr:hover {
+      background: rgba(255, 255, 255, 0.02);
+    }
+
+    .data-table tr.row-danger {
+      background: rgba(239, 68, 68, 0.05);
+    }
+    .data-table tr.row-warning {
+      background: rgba(245, 158, 11, 0.04);
+    }
+
+    .sku-badge {
+      font-family: 'JetBrains Mono', monospace;
+      font-size: 0.75rem;
+      background: rgba(255, 255, 255, 0.06);
+      padding: 3px 6px;
+      border-radius: 4px;
+      color: #cbd5e1;
+      border: 1px solid rgba(255, 255, 255, 0.1);
+    }
+
+    .stock-badge {
+      display: inline-flex;
+      align-items: center;
+      gap: 5px;
+      font-weight: 700;
+      font-size: 0.8rem;
+      padding: 3px 9px;
+      border-radius: 9999px;
+    }
+    .stock-badge.ok {
+      background: var(--success-bg);
+      color: #34d399;
+      border: 1px solid rgba(16, 185, 129, 0.3);
+    }
+    .stock-badge.low {
+      background: var(--warning-bg);
+      color: #fbbf24;
+      border: 1px solid rgba(245, 158, 11, 0.3);
+    }
+    .stock-badge.out {
+      background: var(--danger-bg);
+      color: #f87171;
+      border: 1px solid rgba(239, 68, 68, 0.3);
+    }
+
+    .action-group {
+      display: flex;
+      align-items: center;
+      gap: 0.4rem;
+    }
+
+    /* POS View */
+    .pos-layout {
+      display: grid;
+      grid-template-columns: 1fr 420px;
+      gap: 1.5rem;
+    }
+
+    @media (max-width: 1024px) {
+      .pos-layout { grid-template-columns: 1fr; }
+    }
+
+    .pos-catalog {
+      background: var(--bg-card);
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      padding: 1.25rem;
+      display: flex;
+      flex-direction: column;
+      gap: 1rem;
+    }
+
+    .pos-product-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fill, minmax(180px, 1fr));
+      gap: 1rem;
+      max-height: 580px;
+      overflow-y: auto;
+      padding-right: 0.25rem;
+    }
+
+    .pos-card {
+      background: var(--bg-card-alt);
+      border: 1px solid var(--border);
+      border-radius: var(--radius-sm);
+      padding: 1rem;
+      cursor: pointer;
+      display: flex;
+      flex-direction: column;
+      justify-content: space-between;
+      transition: all 0.2s ease;
+      position: relative;
+    }
+    .pos-card:hover {
+      border-color: var(--primary);
+      transform: translateY(-2px);
+      box-shadow: 0 4px 12px rgba(0,0,0,0.3);
+    }
+    .pos-card.out-of-stock {
+      opacity: 0.5;
+      cursor: not-allowed;
+      border-color: rgba(239, 68, 68, 0.3);
+    }
+
+    .pos-card-name {
+      font-weight: 700;
+      font-size: 0.9rem;
+      margin-bottom: 0.25rem;
+      color: #fff;
+    }
+    .pos-card-sku {
+      font-family: 'JetBrains Mono', monospace;
+      font-size: 0.7rem;
+      color: var(--text-dim);
+    }
+    .pos-card-footer {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      margin-top: 0.75rem;
+      padding-top: 0.5rem;
+      border-top: 1px solid var(--border);
+    }
+    .pos-card-price {
+      font-weight: 800;
+      font-size: 1.05rem;
+      color: #34d399;
+    }
+
+    /* Cart Register */
+    .pos-cart {
+      background: var(--bg-card);
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      padding: 1.25rem;
+      display: flex;
+      flex-direction: column;
+      height: fit-content;
+      position: sticky;
+      top: 5rem;
+      box-shadow: var(--shadow);
+    }
+
+    .cart-header {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding-bottom: 0.875rem;
+      border-bottom: 1px solid var(--border);
+    }
+
+    .cart-items-list {
+      max-height: 320px;
+      overflow-y: auto;
+      margin: 1rem 0;
+      display: flex;
+      flex-direction: column;
+      gap: 0.75rem;
+    }
+
+    .cart-item {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 0.75rem;
+      background: var(--bg-card-alt);
+      border-radius: var(--radius-sm);
+      border: 1px solid var(--border);
+    }
+
+    .cart-item-info {
+      flex: 1;
+    }
+    .cart-item-title {
+      font-size: 0.85rem;
+      font-weight: 700;
+      color: #fff;
+    }
+    .cart-item-sub {
+      font-size: 0.75rem;
+      color: var(--text-dim);
+    }
+
+    .qty-controls {
+      display: flex;
+      align-items: center;
+      gap: 0.35rem;
+      margin-right: 0.75rem;
+    }
+
+    .qty-btn {
+      width: 24px;
+      height: 24px;
+      background: var(--bg-input);
+      border: 1px solid var(--border);
+      color: #fff;
+      border-radius: 4px;
+      cursor: pointer;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-weight: 700;
+      font-size: 0.85rem;
+    }
+    .qty-btn:hover { background: var(--primary); }
+
+    .qty-display {
+      font-family: 'JetBrains Mono', monospace;
+      font-size: 0.85rem;
+      font-weight: 700;
+      min-width: 24px;
+      text-align: center;
+    }
+
+    .cart-totals {
+      border-top: 1px solid var(--border);
+      padding-top: 1rem;
+      display: flex;
+      flex-direction: column;
+      gap: 0.5rem;
+    }
+
+    .cart-row {
+      display: flex;
+      justify-content: space-between;
+      font-size: 0.85rem;
+      color: var(--text-muted);
+    }
+    .cart-row.total {
+      font-size: 1.25rem;
+      font-weight: 800;
+      color: #fff;
+      margin-top: 0.5rem;
+      padding-top: 0.5rem;
+      border-top: 1px dashed var(--border);
+    }
+
+    /* Reports View */
+    .report-grid {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 1.5rem;
+      margin-bottom: 1.5rem;
+    }
+    @media (max-width: 900px) {
+      .report-grid { grid-template-columns: 1fr; }
+    }
+
+    .chart-box {
+      background: var(--bg-card);
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      padding: 1.25rem;
+    }
+
+    .top-item-row {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 0.75rem 0;
+      border-bottom: 1px solid var(--border);
+    }
+    .top-item-row:last-child { border-bottom: none; }
+
+    .rank-pill {
+      width: 24px;
+      height: 24px;
+      border-radius: 50%;
+      background: var(--primary);
+      color: #fff;
+      font-weight: 800;
+      font-size: 0.75rem;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      margin-right: 0.75rem;
+    }
+
+    /* Modal */
+    .modal-backdrop {
+      display: none;
+      position: fixed;
+      top: 0;
+      left: 0;
+      width: 100%;
+      height: 100%;
+      background: rgba(0, 0, 0, 0.75);
+      backdrop-filter: blur(5px);
+      z-index: 100;
+      align-items: center;
+      justify-content: center;
+      padding: 1rem;
+    }
+    .modal-backdrop.open { display: flex; }
+
+    .modal-window {
+      background: var(--bg-card);
+      border: 1px solid var(--border);
+      border-radius: var(--radius-lg);
+      width: 100%;
+      max-width: 580px;
+      max-height: 90vh;
+      overflow-y: auto;
+      box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.7);
+      animation: modalScale 0.2s ease-out;
+    }
+    .modal-window.wide { max-width: 750px; }
+
+    @keyframes modalScale {
+      from { transform: scale(0.95); opacity: 0; }
+      to { transform: scale(1); opacity: 1; }
+    }
+
+    .modal-header {
+      padding: 1.25rem 1.5rem;
+      border-bottom: 1px solid var(--border);
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+    }
+    .modal-title { font-size: 1.15rem; font-weight: 700; color: #fff; }
+
+    .modal-close {
+      background: transparent;
+      border: none;
+      color: var(--text-dim);
+      font-size: 1.5rem;
+      cursor: pointer;
+      line-height: 1;
+    }
+    .modal-close:hover { color: #fff; }
+
+    .modal-body { padding: 1.5rem; }
+    .modal-footer {
+      padding: 1rem 1.5rem;
+      border-top: 1px solid var(--border);
+      display: flex;
+      justify-content: flex-end;
+      gap: 0.75rem;
+      background: rgba(0, 0, 0, 0.2);
+    }
+
+    .form-group { margin-bottom: 1rem; }
+    .form-group label {
+      display: block;
+      font-size: 0.8rem;
+      font-weight: 600;
+      color: var(--text-muted);
+      margin-bottom: 0.35rem;
+    }
+
+    .form-grid-2 {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 1rem;
+    }
+
+    /* Printable Invoice Receipt */
+    .invoice-receipt {
+      background: #ffffff;
+      color: #111827;
+      border-radius: var(--radius-sm);
+      padding: 2rem;
+      font-family: 'JetBrains Mono', monospace;
+      font-size: 0.85rem;
+      box-shadow: 0 10px 25px rgba(0,0,0,0.5);
+    }
+
+    .inv-header {
+      text-align: center;
+      border-bottom: 2px dashed #9ca3af;
+      padding-bottom: 1rem;
+      margin-bottom: 1rem;
+    }
+    .inv-header h2 { font-size: 1.35rem; margin-bottom: 0.25rem; color: #111827; }
+    .inv-meta {
+      display: flex;
+      justify-content: space-between;
+      margin-bottom: 0.75rem;
+      font-size: 0.8rem;
+      color: #4b5563;
+    }
+    .inv-table {
+      width: 100%;
+      border-collapse: collapse;
+      margin: 1rem 0;
+    }
+    .inv-table th {
+      border-bottom: 1px solid #111827;
+      text-align: left;
+      padding: 4px 0;
+      font-size: 0.8rem;
+    }
+    .inv-table td {
+      padding: 6px 0;
+      border-bottom: 1px dotted #e5e7eb;
+    }
+    .inv-table .num { text-align: right; }
+    .inv-total {
+      border-top: 2px dashed #9ca3af;
+      padding-top: 0.75rem;
+      font-size: 1.1rem;
+      font-weight: 800;
+      display: flex;
+      justify-content: space-between;
+    }
+
+    /* Print styling */
+    @media print {
+      body * { visibility: hidden; }
+      #printableInvoiceArea, #printableInvoiceArea * { visibility: visible; }
+      #printableInvoiceArea {
+        position: absolute;
+        left: 0;
+        top: 0;
+        width: 100%;
+        background: white !important;
+        color: black !important;
+        padding: 0 !important;
+      }
+      .no-print { display: none !important; }
+    }
+
+    /* Toasts */
+    .toast-container {
+      position: fixed;
+      bottom: 1.5rem;
+      right: 1.5rem;
+      z-index: 200;
+      display: flex;
+      flex-direction: column;
+      gap: 0.5rem;
+    }
+
+    .toast {
+      background: var(--bg-card);
+      border: 1px solid var(--border);
+      border-radius: var(--radius-sm);
+      padding: 0.875rem 1.25rem;
+      color: #fff;
+      font-size: 0.875rem;
+      display: flex;
+      align-items: center;
+      gap: 0.75rem;
+      box-shadow: var(--shadow);
+      animation: toastIn 0.3s ease;
+      min-width: 280px;
+      max-width: 420px;
+    }
+
+    .toast.toast-error { border-left: 4px solid var(--danger); }
+    .toast.toast-success { border-left: 4px solid var(--success); }
+    .toast.toast-warning { border-left: 4px solid var(--warning); }
+
+    @keyframes toastIn {
+      from { transform: translateX(100%); opacity: 0; }
+      to { transform: translateX(0); opacity: 1; }
+    }
+
+    /* Footer */
+    .app-footer {
+      border-top: 1px solid var(--border);
+      padding: 1rem 1.5rem;
+      font-size: 0.8rem;
+      color: var(--text-dim);
+      text-align: center;
+      background: rgba(17, 24, 39, 0.5);
+    }
+  </style>
+</head>
+<body>
+
+  <!-- App Header -->
+  <header class="app-header">
+    <div class="header-container">
+      <div class="brand">
+        <div class="brand-icon">
+          <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="white" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+            <path d="M13 2L3 14h9l-1 8 10-12h-9l1-8z"></path>
+          </svg>
+        </div>
+        <div>
+          <div class="brand-title">SparkStore <span class="brand-subtitle">| Hack Day Haldia</span></div>
+          <div class="brand-subtitle">Shop Inventory, Sales POS & Low-Stock Alerts</div>
+        </div>
+        <div class="live-pulse" id="backendStatus">
+          <span class="dot"></span> <span id="statusText">Connected • Live</span>
+        </div>
+      </div>
+
+      <!-- Navigation Tabs -->
+      <nav class="nav-tabs">
+        <button class="tab-btn active" onclick="switchTab('inventory')">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16z"></path><polyline points="3.27 6.96 12 12.01 20.73 6.96"></polyline><line x1="12" y1="22.08" x2="12" y2="12"></line></svg>
+          Inventory
+        </button>
+        <button class="tab-btn" onclick="switchTab('pos')">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="9" cy="21" r="1"></circle><circle cx="20" cy="21" r="1"></circle><path d="M1 1h4l2.68 13.39a2 2 0 0 0 2 1.61h9.72a2 2 0 0 0 2-1.61L23 6H6"></path></svg>
+          New Sale (POS)
+        </button>
+        <button class="tab-btn" onclick="switchTab('alerts')">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"></path><line x1="12" y1="9" x2="12" y2="13"></line><line x1="12" y1="17" x2="12.01" y2="17"></line></svg>
+          Low-Stock Alerts
+          <span class="badge-count" id="headerAlertBadge" style="display:none">0</span>
+        </button>
+        <button class="tab-btn" onclick="switchTab('reports')">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="18" y1="20" x2="18" y2="10"></line><line x1="12" y1="20" x2="12" y2="4"></line><line x1="6" y1="20" x2="6" y2="14"></line></svg>
+          Sales Reports
+        </button>
+        <button class="tab-btn" onclick="switchTab('forecast')">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M22 12h-4l-3 9L9 3l-3 9H2"></path></svg>
+          Forecast <span style="font-size:0.65rem; background:rgba(99,102,241,0.25); padding:2px 6px; border-radius:4px; margin-left:2px">Bonus</span>
+        </button>
+      </nav>
+
+      <!-- Action Buttons -->
+      <div class="header-actions">
+        <button class="btn btn-secondary btn-sm" onclick="openScannerModal()" title="Barcode Scanner">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 7V5a2 2 0 0 1 2-2h2"></path><path d="M17 3h2a2 2 0 0 1 2 2v2"></path><path d="M21 17v2a2 2 0 0 1-2 2h-2"></path><path d="M7 21H5a2 2 0 0 1-2-2v-2"></path><line x1="7" y1="12" x2="17" y2="12"></line></svg>
+          Scan
+        </button>
+        <button class="btn btn-primary btn-sm" onclick="openAddProductModal()">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="12" y1="5" x2="12" y2="19"></line><line x1="5" y1="12" x2="19" y2="12"></line></svg>
+          Add Product
+        </button>
+      </div>
+    </div>
+  </header>
+
+  <!-- Main Content Area -->
+  <main class="main-content">
+
+    <!-- TAB 1: INVENTORY & STOCK -->
+    <section id="view-inventory" class="view-section active">
+      <!-- Mini Stat Cards -->
+      <div class="stats-grid">
+        <div class="stat-card">
+          <div class="stat-label">Total Catalog Products</div>
+          <div class="stat-val" id="statTotalProducts">0</div>
+          <div class="stat-sub">Across all categories</div>
+        </div>
+        <div class="stat-card stat-success">
+          <div class="stat-label">Total Units in Stock</div>
+          <div class="stat-val" id="statTotalStock">0</div>
+          <div class="stat-sub">Current physical stock</div>
+        </div>
+        <div class="stat-card stat-warning">
+          <div class="stat-label">Low Stock Warnings</div>
+          <div class="stat-val" id="statLowStock">0</div>
+          <div class="stat-sub">Items at or below reorder level</div>
+        </div>
+        <div class="stat-card stat-danger">
+          <div class="stat-label">Out of Stock</div>
+          <div class="stat-val" id="statOutOfStock">0</div>
+          <div class="stat-sub">Items urgently requiring restock</div>
+        </div>
+      </div>
+
+      <!-- Filter Toolbar -->
+      <div class="toolbar">
+        <div class="search-group">
+          <div class="input-wrapper">
+            <svg class="input-icon" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="8"></circle><line x1="21" y1="21" x2="16.65" y2="16.65"></line></svg>
+            <input type="text" id="searchInput" class="form-control" placeholder="Search by product name, SKU, or category..." oninput="handleSearch()">
+          </div>
+          <select id="sortSelect" class="form-select" onchange="loadProducts()">
+            <option value="name_asc">Sort: Name (A to Z)</option>
+            <option value="name_desc">Sort: Name (Z to A)</option>
+            <option value="stock_asc">Sort: Stock (Lowest First)</option>
+            <option value="stock_desc">Sort: Stock (Highest First)</option>
+            <option value="price_asc">Sort: Price (Lowest First)</option>
+            <option value="price_desc">Sort: Price (Highest First)</option>
+            <option value="newest">Sort: Newly Added</option>
+          </select>
+        </div>
+
+        <div style="display:flex; align-items:center; gap:0.5rem; flex-wrap:wrap;">
+          <label style="display:flex; align-items:center; gap:6px; font-size:0.85rem; cursor:pointer; color:var(--text-muted); padding: 0.4rem 0.75rem; background:var(--bg-input); border-radius:var(--radius-sm); border:1px solid var(--border);">
+            <input type="checkbox" id="lowStockToggle" onchange="loadProducts()">
+            <span>Low Stock Only</span>
+          </label>
+          <button class="btn btn-secondary btn-sm" onclick="exportCSV()" title="Export CSV">
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path><polyline points="7 10 12 15 17 10"></polyline><line x1="12" y1="15" x2="12" y2="3"></line></svg>
+            Export CSV
+          </button>
+          <button class="btn btn-secondary btn-sm" onclick="openCSVModal()" title="Import CSV">
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path><polyline points="17 8 12 3 7 8"></polyline><line x1="12" y1="3" x2="12" y2="15"></line></svg>
+            Import CSV
+          </button>
+          <button class="btn btn-secondary btn-sm" onclick="seedDemoData()" title="Reset / Seed Demo Data">
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M23 4v6h-6"></path><path d="M20.49 15a9 9 0 1 1-2.12-9.36L23 10"></path></svg>
+            Demo Seed
+          </button>
+        </div>
+
+        <!-- Category Filter Chips -->
+        <div class="category-chips" id="categoryChips">
+          <div class="chip active" onclick="filterCategory('All')">All Categories</div>
+        </div>
+      </div>
+
+      <!-- Products Data Table -->
+      <div class="table-container">
+        <table class="data-table">
+          <thead>
+            <tr>
+              <th>SKU</th>
+              <th>Product Name</th>
+              <th>Category</th>
+              <th>Cost Price</th>
+              <th>Selling Price</th>
+              <th>Margin</th>
+              <th>Stock Level</th>
+              <th>Reorder Min</th>
+              <th style="text-align:right;">Actions</th>
+            </tr>
+          </thead>
+          <tbody id="productsTableBody">
+            <tr><td colspan="9" style="text-align:center; padding: 2rem;">Loading products...</td></tr>
+          </tbody>
+        </table>
+      </div>
+    </section>
+
+    <!-- TAB 2: POINT OF SALE (NEW SALE) -->
+    <section id="view-pos" class="view-section">
+      <div class="pos-layout">
+        <!-- Catalog Picker -->
+        <div class="pos-catalog">
+          <div style="display:flex; justify-content:space-between; align-items:center; flex-wrap:wrap; gap:0.5rem;">
+            <div>
+              <h2 style="font-size:1.15rem; font-weight:800; color:#fff;">Select Items for Sale</h2>
+              <p style="font-size:0.8rem; color:var(--text-muted);">Click items to add to the active register cart</p>
+            </div>
+            <div class="input-wrapper" style="max-width:240px;">
+              <svg class="input-icon" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="8"></circle><line x1="21" y1="21" x2="16.65" y2="16.65"></line></svg>
+              <input type="text" id="posSearchInput" class="form-control" placeholder="Quick find item..." oninput="renderPosCatalog()">
+            </div>
+          </div>
+
+          <div class="pos-product-grid" id="posProductGrid">
+            <!-- Rendered by JS -->
+          </div>
+        </div>
+
+        <!-- POS Cart Register -->
+        <div class="pos-cart">
+          <div class="cart-header">
+            <div>
+              <h3 style="font-size:1.1rem; font-weight:800; color:#fff;">Active Sale Register</h3>
+              <p style="font-size:0.75rem; color:var(--text-muted);" id="cartCountLabel">0 line items selected</p>
+            </div>
+            <button class="btn btn-secondary btn-sm" onclick="clearCart()" title="Clear cart">Clear</button>
+          </div>
+
+          <div class="form-group" style="margin-top:0.75rem;">
+            <label>Customer Name</label>
+            <input type="text" id="posCustomerName" class="form-control" style="padding-left:0.75rem;" placeholder="e.g. Ramesh Kumar / Walk-in">
+          </div>
+
+          <div class="form-grid-2" style="margin-bottom:0.5rem;">
+            <div class="form-group" style="margin-bottom:0;">
+              <label>Payment Method</label>
+              <select id="posPaymentMethod" class="form-select">
+                <option value="Cash">Cash</option>
+                <option value="UPI">UPI / QR</option>
+                <option value="Card">Card</option>
+                <option value="Credit">Store Credit</option>
+              </select>
+            </div>
+            <div class="form-group" style="margin-bottom:0;">
+              <label>Notes / Tag</label>
+              <input type="text" id="posSaleNotes" class="form-control" style="padding-left:0.75rem;" placeholder="Counter sale">
+            </div>
+          </div>
+
+          <!-- Items in cart -->
+          <div class="cart-items-list" id="cartItemsList">
+            <div style="text-align:center; padding: 2rem 1rem; color:var(--text-dim); font-size:0.85rem;">
+              Cart is currently empty.<br>Click products on the left or scan SKU to add.
+            </div>
+          </div>
+
+          <!-- Totals -->
+          <div class="cart-totals">
+            <div class="cart-row">
+              <span>Items Total (Quantity)</span>
+              <span id="cartTotalQty" style="font-family:'JetBrains Mono'; font-weight:700;">0</span>
+            </div>
+            <div class="cart-row">
+              <span>Estimated Gross Profit</span>
+              <span id="cartEstProfit" style="color:#34d399; font-weight:700; font-family:'JetBrains Mono';">₹0.00</span>
+            </div>
+            <div class="cart-row total">
+              <span>Grand Total</span>
+              <span id="cartGrandTotal" style="color:#6366f1;">₹0.00</span>
+            </div>
+            <button class="btn btn-primary" id="btnSubmitSale" style="margin-top:0.875rem; width:100%; font-size:1rem; padding:0.8rem;" onclick="submitSale()">
+              <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="20 6 9 17 4 12"></polyline></svg>
+              Complete Sale & Print Invoice
+            </button>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- TAB 3: LOW-STOCK ALERTS -->
+    <section id="view-alerts" class="view-section">
+      <div style="background:var(--bg-card); border:1px solid var(--border); border-radius:var(--radius); padding:1.5rem; margin-bottom:1.5rem;">
+        <div style="display:flex; justify-content:space-between; align-items:center; flex-wrap:wrap; gap:1rem;">
+          <div>
+            <h2 style="font-size:1.25rem; font-weight:800; color:#fff; display:flex; align-items:center; gap:0.5rem;">
+              <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="#f59e0b" stroke-width="2.5"><path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"></path><line x1="12" y1="9" x2="12" y2="13"></line><line x1="12" y1="17" x2="12.01" y2="17"></line></svg>
+              Low-Stock & Out-of-Stock Watchlist
+            </h2>
+            <p style="font-size:0.85rem; color:var(--text-muted); margin-top:0.25rem;">
+              Items whose stock is less than or equal to their designated reorder threshold. Restock directly with one click.
+            </p>
+          </div>
+          <button class="btn btn-secondary btn-sm" onclick="loadAlerts()">
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="23 4 23 10 17 10"></polyline><polyline points="1 20 1 14 7 14"></polyline><path d="M3.51 9a9 9 0 0 1 14.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0 0 20.49 15"></path></svg>
+            Refresh Alerts
+          </button>
+        </div>
+      </div>
+
+      <div class="table-container">
+        <table class="data-table">
+          <thead>
+            <tr>
+              <th>Status</th>
+              <th>SKU</th>
+              <th>Product Name</th>
+              <th>Category</th>
+              <th>Current Stock</th>
+              <th>Reorder Threshold</th>
+              <th>Deficit Needed</th>
+              <th>Cost / Unit</th>
+              <th style="text-align:right;">Quick Restock</th>
+            </tr>
+          </thead>
+          <tbody id="alertsTableBody">
+            <tr><td colspan="9" style="text-align:center; padding: 2rem;">Checking stock levels...</td></tr>
+          </tbody>
+        </table>
+      </div>
+    </section>
+
+    <!-- TAB 4: SALES REPORTS & ANALYTICS -->
+    <section id="view-reports" class="view-section">
+      <!-- Timeframe selector -->
+      <div class="toolbar">
+        <div>
+          <h2 style="font-size:1.2rem; font-weight:800; color:#fff;">Sales & Profitability Analytics</h2>
+          <p style="font-size:0.8rem; color:var(--text-muted);">Real-time revenue, cost, profit, and top 5 item breakdown</p>
+        </div>
+        <div style="display:flex; gap:0.5rem;">
+          <button class="btn btn-secondary btn-sm active-period" id="btnPeriodDaily" onclick="setReportPeriod('daily')">Daily (Today)</button>
+          <button class="btn btn-secondary btn-sm" id="btnPeriodWeekly" onclick="setReportPeriod('weekly')">Weekly (7 Days)</button>
+          <button class="btn btn-secondary btn-sm" id="btnPeriodMonthly" onclick="setReportPeriod('monthly')">Monthly (30 Days)</button>
+          <button class="btn btn-secondary btn-sm" id="btnPeriodAll" onclick="setReportPeriod('all')">All Time</button>
+        </div>
+      </div>
+
+      <!-- KPI Summary Cards -->
+      <div class="stats-grid">
+        <div class="stat-card stat-success">
+          <div class="stat-label">Total Revenue</div>
+          <div class="stat-val" id="repRevenue" style="color:#34d399;">₹0.00</div>
+          <div class="stat-sub">Gross customer receipts</div>
+        </div>
+        <div class="stat-card">
+          <div class="stat-label">Total Cost</div>
+          <div class="stat-val" id="repCost">₹0.00</div>
+          <div class="stat-sub">Cost of goods sold (COGS)</div>
+        </div>
+        <div class="stat-card stat-primary">
+          <div class="stat-label">Net Gross Profit</div>
+          <div class="stat-val" id="repProfit" style="color:#818cf8;">₹0.00</div>
+          <div class="stat-sub">Revenue minus cost</div>
+        </div>
+        <div class="stat-card stat-warning">
+          <div class="stat-label">Profit Margin %</div>
+          <div class="stat-val" id="repMargin">0.0%</div>
+          <div class="stat-sub" id="repSalesCount">0 total transactions</div>
+        </div>
+      </div>
+
+      <!-- Analytics Visuals -->
+      <div class="report-grid">
+        <!-- Daily Trend Chart -->
+        <div class="chart-box">
+          <h3 style="font-size:1rem; font-weight:700; margin-bottom:1rem; color:#fff;">Daily Revenue & Profit Trend</h3>
+          <div style="position:relative; height:260px;">
+            <canvas id="salesTrendChart"></canvas>
+          </div>
+        </div>
+
+        <!-- Top 5 Best Selling Items -->
+        <div class="chart-box">
+          <h3 style="font-size:1rem; font-weight:700; margin-bottom:1rem; color:#fff;">Top 5 Best-Selling Products</h3>
+          <div id="topItemsList" style="display:flex; flex-direction:column; gap:0.25rem;">
+            <div style="text-align:center; padding:2rem; color:var(--text-dim);">No sales recorded in this period</div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Recent Transactions Table -->
+      <div class="table-container">
+        <div style="padding:1rem 1.25rem; border-bottom:1px solid var(--border); font-weight:700; color:#fff; display:flex; justify-content:space-between; align-items:center;">
+          <span>Recent Sales Transactions</span>
+          <span style="font-size:0.75rem; color:var(--text-muted); font-weight:500;">Click "View Invoice" to print receipt</span>
+        </div>
+        <table class="data-table">
+          <thead>
+            <tr>
+              <th>Invoice #</th>
+              <th>Date & Time</th>
+              <th>Customer</th>
+              <th>Payment</th>
+              <th>Items Sold</th>
+              <th>Total Amount</th>
+              <th>Gross Profit</th>
+              <th style="text-align:right;">Invoice</th>
+            </tr>
+          </thead>
+          <tbody id="recentSalesTableBody">
+            <tr><td colspan="8" style="text-align:center; padding: 2rem;">Loading sales...</td></tr>
+          </tbody>
+        </table>
+      </div>
+    </section>
+
+    <!-- TAB 5: DEMAND FORECAST (BONUS) -->
+    <section id="view-forecast" class="view-section">
+      <div style="background:var(--bg-card); border:1px solid var(--border); border-radius:var(--radius); padding:1.5rem; margin-bottom:1.5rem;">
+        <div style="display:flex; justify-content:space-between; align-items:center; flex-wrap:wrap; gap:1rem;">
+          <div>
+            <h2 style="font-size:1.25rem; font-weight:800; color:#fff; display:flex; align-items:center; gap:0.5rem;">
+              <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="#6366f1" stroke-width="2.5"><path d="M22 12h-4l-3 9L9 3l-3 9H2"></path></svg>
+              Moving-Average Demand Forecast ('Reorder in N Days')
+            </h2>
+            <p style="font-size:0.85rem; color:var(--text-muted); margin-top:0.25rem;">
+              Calculates rolling daily sales velocity to estimate how many days until stock depletion.
+            </p>
+          </div>
+          <div style="display:flex; align-items:center; gap:0.5rem;">
+            <select id="forecastWindowSelect" class="form-select" onchange="loadForecast()">
+              <option value="7">Velocity Window: Last 7 Days</option>
+              <option value="14" selected>Velocity Window: Last 14 Days</option>
+              <option value="30">Velocity Window: Last 30 Days</option>
+            </select>
+          </div>
+        </div>
+      </div>
+
+      <div class="table-container">
+        <table class="data-table">
+          <thead>
+            <tr>
+              <th>Status</th>
+              <th>SKU</th>
+              <th>Product Name</th>
+              <th>Current Stock</th>
+              <th>Reorder Min</th>
+              <th>Recent Sales</th>
+              <th>Velocity (Units/Day)</th>
+              <th>Stockout Horizon</th>
+              <th>Recommended Action</th>
+              <th style="text-align:right;">Action</th>
+            </tr>
+          </thead>
+          <tbody id="forecastTableBody">
+            <tr><td colspan="10" style="text-align:center; padding: 2rem;">Calculating moving-average forecasts...</td></tr>
+          </tbody>
+        </table>
+      </div>
+    </section>
+
+  </main>
+
+  <!-- MODAL: ADD / EDIT PRODUCT -->
+  <div class="modal-backdrop" id="productModal">
+    <div class="modal-window">
+      <div class="modal-header">
+        <div class="modal-title" id="productModalTitle">Add New Product</div>
+        <button class="modal-close" onclick="closeModal('productModal')">&times;</button>
+      </div>
+      <form id="productForm" onsubmit="handleProductSubmit(event)">
+        <input type="hidden" id="editProductId">
+        <div class="modal-body">
+          <div class="form-group">
+            <label>Product Name *</label>
+            <input type="text" id="pName" class="form-control" style="padding-left:0.75rem;" placeholder="e.g. Tata Tea Premium 500g" required>
+          </div>
+          <div class="form-grid-2">
+            <div class="form-group">
+              <label>SKU (Stock Keeping Unit) *</label>
+              <input type="text" id="pSku" class="form-control" style="padding-left:0.75rem; text-transform:uppercase;" placeholder="e.g. TEA-006" required>
+            </div>
+            <div class="form-group">
+              <label>Category</label>
+              <input type="text" id="pCategory" class="form-control" style="padding-left:0.75rem;" placeholder="e.g. Beverages" list="categoryDatalist">
+              <datalist id="categoryDatalist"></datalist>
+            </div>
+          </div>
+          <div class="form-grid-2">
+            <div class="form-group">
+              <label>Cost Price (₹) *</label>
+              <input type="number" step="0.01" min="0" id="pCost" class="form-control" style="padding-left:0.75rem;" placeholder="0.00" required oninput="calcMarginPreview()">
+            </div>
+            <div class="form-group">
+              <label>Selling Price (₹) *</label>
+              <input type="number" step="0.01" min="0" id="pPrice" class="form-control" style="padding-left:0.75rem;" placeholder="0.00" required oninput="calcMarginPreview()">
+            </div>
+          </div>
+          <div id="marginPreviewBox" style="font-size:0.8rem; color:#34d399; margin-bottom:1rem; font-weight:600;"></div>
+          <div class="form-grid-2">
+            <div class="form-group">
+              <label>Stock Quantity *</label>
+              <input type="number" min="0" id="pStock" class="form-control" style="padding-left:0.75rem;" placeholder="0" required>
+            </div>
+            <div class="form-group">
+              <label>Reorder Alert Level *</label>
+              <input type="number" min="0" id="pReorder" class="form-control" style="padding-left:0.75rem;" placeholder="5" required>
+            </div>
+          </div>
+        </div>
+        <div class="modal-footer">
+          <button type="button" class="btn btn-secondary" onclick="closeModal('productModal')">Cancel</button>
+          <button type="submit" class="btn btn-primary" id="btnSaveProduct">Save Product</button>
+        </div>
+      </form>
+    </div>
+  </div>
+
+  <!-- MODAL: RESTOCK -->
+  <div class="modal-backdrop" id="restockModal">
+    <div class="modal-window">
+      <div class="modal-header">
+        <div class="modal-title">Restock Product</div>
+        <button class="modal-close" onclick="closeModal('restockModal')">&times;</button>
+      </div>
+      <form id="restockForm" onsubmit="handleRestockSubmit(event)">
+        <input type="hidden" id="restockProductId">
+        <div class="modal-body">
+          <div style="background:var(--bg-card-alt); border-radius:var(--radius-sm); padding:1rem; margin-bottom:1rem; border:1px solid var(--border);">
+            <div id="restockProductName" style="font-weight:700; font-size:1rem; color:#fff;">Product Name</div>
+            <div style="font-size:0.8rem; color:var(--text-muted); display:flex; gap:1rem; margin-top:0.35rem;">
+              <span>SKU: <strong id="restockProductSku" class="sku-badge">-</strong></span>
+              <span>Current Stock: <strong id="restockCurrentStock" style="color:#fbbf24;">0</strong></span>
+              <span>Reorder Min: <strong id="restockReorderMin">0</strong></span>
+            </div>
+          </div>
+          <div class="form-grid-2">
+            <div class="form-group">
+              <label>Add Stock Quantity *</label>
+              <input type="number" min="1" id="restockQty" class="form-control" style="padding-left:0.75rem;" placeholder="e.g. 10" required>
+            </div>
+            <div class="form-group">
+              <label>Update Unit Cost (Optional ₹)</label>
+              <input type="number" step="0.01" min="0" id="restockCost" class="form-control" style="padding-left:0.75rem;" placeholder="Leave blank to keep existing">
+            </div>
+          </div>
+          <div class="form-group">
+            <label>Restock Notes / Supplier Reference</label>
+            <input type="text" id="restockNotes" class="form-control" style="padding-left:0.75rem;" placeholder="e.g. Weekly distributor shipment">
+          </div>
+        </div>
+        <div class="modal-footer">
+          <button type="button" class="btn btn-secondary" onclick="closeModal('restockModal')">Cancel</button>
+          <button type="submit" class="btn btn-success">Confirm Restock</button>
+        </div>
+      </form>
+    </div>
+  </div>
+
+  <!-- MODAL: STOCK MOVEMENTS AUDIT LOG -->
+  <div class="modal-backdrop" id="movementsModal">
+    <div class="modal-window wide">
+      <div class="modal-header">
+        <div>
+          <div class="modal-title">Stock Movement Audit Log</div>
+          <div style="font-size:0.8rem; color:var(--text-muted);" id="movementsModalSub">Detailed ledger for item</div>
+        </div>
+        <button class="modal-close" onclick="closeModal('movementsModal')">&times;</button>
+      </div>
+      <div class="modal-body" style="padding:0;">
+        <table class="data-table">
+          <thead>
+            <tr>
+              <th>Date & Time</th>
+              <th>Type</th>
+              <th>Quantity Change</th>
+              <th>Previous</th>
+              <th>New Balance</th>
+              <th>Reference / Invoice</th>
+              <th>Notes</th>
+            </tr>
+          </thead>
+          <tbody id="movementsTableBody">
+            <tr><td colspan="7" style="text-align:center; padding:2rem;">Loading movement history...</td></tr>
+          </tbody>
+        </table>
+      </div>
+      <div class="modal-footer">
+        <button type="button" class="btn btn-secondary" onclick="closeModal('movementsModal')">Close</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- MODAL: PRINTABLE INVOICE RECEIPT -->
+  <div class="modal-backdrop" id="invoiceModal">
+    <div class="modal-window">
+      <div class="modal-header no-print">
+        <div class="modal-title">Sale Receipt & Invoice</div>
+        <button class="modal-close" onclick="closeModal('invoiceModal')">&times;</button>
+      </div>
+      <div class="modal-body" style="padding:1.5rem;" id="printableInvoiceArea">
+        <div class="invoice-receipt">
+          <div class="inv-header">
+            <h2>SPARK STORE</h2>
+            <div>Local Kiranawala & General Store</div>
+            <div style="font-size:0.75rem; color:#6b7280;">Haldia Main Road, West Bengal | Phone: 9876543210</div>
+          </div>
+          <div class="inv-meta">
+            <div>
+              <strong>INVOICE:</strong> <span id="invNumber">-</span><br>
+              <strong>CUSTOMER:</strong> <span id="invCustomer">-</span>
+            </div>
+            <div style="text-align:right;">
+              <strong>DATE:</strong> <span id="invDate">-</span><br>
+              <strong>PAYMENT:</strong> <span id="invPayment">-</span>
+            </div>
+          </div>
+          <table class="inv-table">
+            <thead>
+              <tr>
+                <th>ITEM</th>
+                <th class="num">QTY</th>
+                <th class="num">PRICE</th>
+                <th class="num">AMOUNT</th>
+              </tr>
+            </thead>
+            <tbody id="invItemsBody"></tbody>
+          </table>
+          <div class="inv-total">
+            <span>TOTAL AMOUNT PAID</span>
+            <span id="invGrandTotal">₹0.00</span>
+          </div>
+          <div style="text-align:center; margin-top:1.25rem; font-size:0.75rem; color:#6b7280; border-top:1px dashed #d1d5db; padding-top:0.75rem;">
+            Thank you for shopping with us! Please visit again.<br>
+            *** End of Receipt ***
+          </div>
+        </div>
+      </div>
+      <div class="modal-footer no-print">
+        <button type="button" class="btn btn-secondary" onclick="closeModal('invoiceModal')">Close</button>
+        <button type="button" class="btn btn-primary" onclick="window.print()">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="6 9 6 2 18 2 18 9"></polyline><path d="M6 18H4a2 2 0 0 1-2-2v-5a2 2 0 0 1 2-2h16a2 2 0 0 1 2 2v5a2 2 0 0 1-2 2h-2"></path><rect x="6" y="14" width="12" height="8"></rect></svg>
+          Print Invoice
+        </button>
+      </div>
+    </div>
+  </div>
+
+  <!-- MODAL: BARCODE SCANNER (BONUS) -->
+  <div class="modal-backdrop" id="scannerModal">
+    <div class="modal-window">
+      <div class="modal-header">
+        <div class="modal-title">Barcode Scanner & SKU Quick-Add</div>
+        <button class="modal-close" onclick="closeScannerModal()">&times;</button>
+      </div>
+      <div class="modal-body">
+        <p style="font-size:0.85rem; color:var(--text-muted); margin-bottom:1rem;">
+          Point your device camera at a product barcode or enter a SKU code manually to immediately ring it up.
+        </p>
+
+        <!-- Live Camera feed container -->
+        <div id="barcodeReader" style="width:100%; border-radius:var(--radius-sm); overflow:hidden; background:#000; min-height:220px; display:flex; align-items:center; justify-content:center; color:#9ca3af;">
+          <div style="text-align:center; padding:1rem;">
+            <svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="margin-bottom:0.5rem;"><path d="M23 19a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h4l2-3h6l2 3h4a2 2 0 0 1 2 2z"></path><circle cx="12" cy="13" r="4"></circle></svg><br>
+            <button class="btn btn-primary btn-sm" onclick="startCameraScanner()">Start Camera Scanner</button>
+          </div>
+        </div>
+
+        <div style="display:flex; align-items:center; gap:0.5rem; margin-top:1rem;">
+          <input type="text" id="manualSkuInput" class="form-control" placeholder="Or enter SKU (e.g. TEA-006, OIL-001)" style="padding-left:0.75rem; text-transform:uppercase;">
+          <button class="btn btn-secondary" onclick="handleManualSkuScan()">Add</button>
+        </div>
+
+        <div style="margin-top:1rem;">
+          <label style="font-size:0.75rem; color:var(--text-dim); text-transform:uppercase; font-weight:700;">Quick Test SKU Clickers:</label>
+          <div style="display:flex; flex-wrap:wrap; gap:0.35rem; margin-top:0.35rem;" id="quickSkuChips"></div>
+        </div>
+      </div>
+      <div class="modal-footer">
+        <button type="button" class="btn btn-secondary" onclick="closeScannerModal()">Close</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- MODAL: CSV IMPORT (BONUS) -->
+  <div class="modal-backdrop" id="csvModal">
+    <div class="modal-window">
+      <div class="modal-header">
+        <div class="modal-title">Import Products via CSV</div>
+        <button class="modal-close" onclick="closeModal('csvModal')">&times;</button>
+      </div>
+      <div class="modal-body">
+        <p style="font-size:0.85rem; color:var(--text-muted); margin-bottom:1rem;">
+          Upload a CSV file or paste raw CSV text. Existing SKUs will be updated with new stock and prices; new SKUs will be created.
+        </p>
+        <div class="form-group">
+          <label>Choose CSV File</label>
+          <input type="file" id="csvFileInput" accept=".csv" class="form-control" style="padding:0.4rem;" onchange="handleCSVFileChosen(event)">
+        </div>
+        <div class="form-group">
+          <label>Or Paste CSV Content</label>
+          <textarea id="csvTextInput" class="form-control" style="padding:0.75rem; height:130px; font-family:'JetBrains Mono', monospace; font-size:0.75rem;" placeholder="name,sku,category,cost,price,stock,reorder_level
+Basmati Rice 1kg,RICE-101,Groceries,75.0,95.0,20,5"></textarea>
+        </div>
+      </div>
+      <div class="modal-footer">
+        <button type="button" class="btn btn-secondary" onclick="closeModal('csvModal')">Cancel</button>
+        <button type="button" class="btn btn-primary" onclick="submitCSVImport()">Upload & Import</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Toast Notification Stack -->
+  <div class="toast-container" id="toastContainer"></div>
+
+  <!-- Footer -->
+  <footer class="app-footer">
+    SparkStore &copy; 2026 — Built for Hack Day Haldia x GRID Community 6-Hour Challenge. Stack: Python Flask + SQLite + Vanilla JS.
+  </footer>
+
+  <script>
+    // State
+    let products = [];
+    let currentCategory = 'All';
+    let searchQuery = '';
+    let cart = []; // [{product, quantity}]
+    let reportPeriod = 'daily';
+    let salesChartInstance = null;
+    let html5QrScanner = null;
+
+    // Initialize App
+    document.addEventListener("DOMContentLoaded", () => {
+      checkHealth();
+      loadProducts();
+      loadAlerts();
+      loadReport();
+      loadForecast();
+    });
+
+    // Check Backend Health
+    function checkHealth() {
+      fetch("/api/health")
+        .then(r => r.json())
+        .then(data => {
+          if (data.ok) {
+            document.getElementById("statusText").textContent = "Connected • Live";
+          }
+        })
+        .catch(() => {
+          document.getElementById("statusText").textContent = "Backend Offline";
+          document.getElementById("backendStatus").style.color = "#f87171";
+          showToast("Backend not reachable. Ensure 'python app.py' is running.", "error");
+        });
+    }
+
+    // Tab Navigation
+    function switchTab(tabName) {
+      document.querySelectorAll(".tab-btn").forEach(b => b.classList.remove("active"));
+      document.querySelectorAll(".view-section").forEach(s => s.classList.remove("active"));
+
+      const targetView = document.getElementById("view-" + tabName);
+      if (targetView) targetView.classList.add("active");
+
+      // Active state on nav button
+      const activeBtn = Array.from(document.querySelectorAll(".tab-btn")).find(b =>
+        b.getAttribute("onclick")?.includes(tabName)
+      );
+      if (activeBtn) activeBtn.classList.add("active");
+
+      // Reload tab specific data
+      if (tabName === 'inventory') loadProducts();
+      else if (tabName === 'pos') renderPosCatalog();
+      else if (tabName === 'alerts') loadAlerts();
+      else if (tabName === 'reports') loadReport();
+      else if (tabName === 'forecast') loadForecast();
+    }
+
+    // Toast Notifications
+    function showToast(message, type = "success") {
+      const container = document.getElementById("toastContainer");
+      const toast = document.createElement("div");
+      toast.className = `toast toast-${type}`;
+
+      let icon = `✓`;
+      if (type === 'error') icon = `⚠`;
+      if (type === 'warning') icon = `!`;
+
+      toast.innerHTML = `<span style="font-weight:800; font-size:1.1rem;">${icon}</span> <span>${message}</span>`;
+      container.appendChild(toast);
+
+      setTimeout(() => {
+        toast.style.opacity = '0';
+        toast.style.transform = 'translateY(10px)';
+        setTimeout(() => toast.remove(), 300);
+      }, 4000);
+    }
+
+    // Modal Helpers
+    function openModal(id) {
+      document.getElementById(id).classList.add("open");
+    }
+    function closeModal(id) {
+      document.getElementById(id).classList.remove("open");
+    }
+
+    // -------------------------------------------------------------
+    // PRODUCTS & INVENTORY
+    // -------------------------------------------------------------
+    function loadProducts() {
+      const search = document.getElementById("searchInput").value.trim();
+      const sort = document.getElementById("sortSelect").value;
+      const lowStockOnly = document.getElementById("lowStockToggle").checked;
+
+      let url = `/api/products?sort=${encodeURIComponent(sort)}`;
+      if (search) url += `&q=${encodeURIComponent(search)}`;
+      if (currentCategory && currentCategory !== 'All') url += `&category=${encodeURIComponent(currentCategory)}`;
+      if (lowStockOnly) url += `&low_stock=true`;
+
+      fetch(url)
+        .then(r => r.json())
+        .then(data => {
+          if (!data.ok) throw new Error(data.error);
+          products = data.products || [];
+          renderProductsTable(products);
+          renderCategoryChips(data.categories || []);
+          updateInventoryStats(data);
+          renderPosCatalog();
+          populateQuickSkuChips();
+        })
+        .catch(err => {
+          console.error(err);
+          showToast("Failed to load products: " + err.message, "error");
+        });
+    }
+
+    let searchTimeout = null;
+    function handleSearch() {
+      clearTimeout(searchTimeout);
+      searchTimeout = setTimeout(loadProducts, 250);
+    }
+
+    function renderCategoryChips(categories) {
+      const container = document.getElementById("categoryChips");
+      const list = ['All', ...categories];
+      const datalist = document.getElementById("categoryDatalist");
+      datalist.innerHTML = categories.map(c => `<option value="${c}"></option>`).join("");
+
+      container.innerHTML = list.map(c => `
+        <div class="chip ${c === currentCategory ? 'active' : ''}" onclick="filterCategory('${c}')">
+          ${c === 'All' ? 'All Categories' : c}
+        </div>
+      `).join("");
+    }
+
+    function filterCategory(cat) {
+      currentCategory = cat;
+      loadProducts();
+    }
+
+    function updateInventoryStats(data) {
+      document.getElementById("statTotalProducts").textContent = data.total_count || 0;
+      const totalUnits = (data.products || []).reduce((acc, p) => acc + p.stock, 0);
+      document.getElementById("statTotalStock").textContent = totalUnits;
+      document.getElementById("statLowStock").textContent = data.low_stock_count || 0;
+      document.getElementById("statOutOfStock").textContent = data.out_of_stock_count || 0;
+
+      // Update Header badge
+      const totalAlerts = (data.low_stock_count || 0);
+      const alertBadge = document.getElementById("headerAlertBadge");
+      if (totalAlerts > 0) {
+        alertBadge.style.display = "inline-block";
+        alertBadge.textContent = totalAlerts;
+      } else {
+        alertBadge.style.display = "none";
+      }
+    }
+
+    function renderProductsTable(items) {
+      const tbody = document.getElementById("productsTableBody");
+      if (!items || items.length === 0) {
+        tbody.innerHTML = `<tr><td colspan="9" style="text-align:center; padding:3rem; color:var(--text-dim);">No products match your current filters.</td></tr>`;
+        return;
+      }
+
+      tbody.innerHTML = items.map(p => {
+        let stockBadge = `<span class="stock-badge ok">● ${p.stock} units</span>`;
+        let trClass = "";
+        if (p.stock === 0) {
+          stockBadge = `<span class="stock-badge out">⚠ Out of stock (0)</span>`;
+          trClass = "row-danger";
+        } else if (p.is_low_stock) {
+          stockBadge = `<span class="stock-badge low">● Low stock (${p.stock})</span>`;
+          trClass = "row-warning";
+        }
+
+        return `
+          <tr class="${trClass}">
+            <td><span class="sku-badge">${p.sku}</span></td>
+            <td>
+              <strong style="color:#fff;">${escapeHtml(p.name)}</strong>
+            </td>
+            <td><span style="font-size:0.8rem; color:var(--text-muted);">${escapeHtml(p.category || 'General')}</span></td>
+            <td style="font-family:'JetBrains Mono';">₹${parseFloat(p.cost).toFixed(2)}</td>
+            <td style="font-family:'JetBrains Mono'; font-weight:700; color:#34d399;">₹${parseFloat(p.price).toFixed(2)}</td>
+            <td style="font-family:'JetBrains Mono'; color:#818cf8; font-size:0.8rem;">${p.margin_pct}%</td>
+            <td>${stockBadge}</td>
+            <td style="font-family:'JetBrains Mono'; color:var(--text-dim);">${p.reorder_level}</td>
+            <td style="text-align:right;">
+              <div class="action-group" style="justify-content:flex-end;">
+                <button class="btn btn-secondary btn-sm" onclick="openRestockModal(${p.id})" title="Restock item">
+                  <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="#34d399" stroke-width="2.5"><polyline points="23 4 23 10 17 10"></polyline><line x1="12" y1="20" x2="12" y2="4"></line></svg>
+                  Restock
+                </button>
+                <button class="btn btn-secondary btn-sm btn-icon" onclick="openMovementsModal(${p.id})" title="View stock ledger history">
+                  <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"></circle><polyline points="12 6 12 12 16 14"></polyline></svg>
+                </button>
+                <button class="btn btn-secondary btn-sm btn-icon" onclick="openEditProductModal(${p.id})" title="Edit product details">
+                  <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"></path><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"></path></svg>
+                </button>
+                <button class="btn btn-danger btn-sm btn-icon" onclick="deleteProduct(${p.id}, '${escapeHtml(p.name)}')" title="Delete product">
+                  <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="3 6 5 6 21 6"></polyline><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"></path></svg>
+                </button>
+              </div>
+            </td>
+          </tr>
+        `;
+      }).join("");
+    }
+
+    // Product Modal: Create / Edit
+    function openAddProductModal() {
+      document.getElementById("productForm").reset();
+      document.getElementById("editProductId").value = "";
+      document.getElementById("productModalTitle").textContent = "Add New Product";
+      document.getElementById("pStock").disabled = false;
+      document.getElementById("marginPreviewBox").textContent = "";
+      openModal("productModal");
+    }
+
+    function openEditProductModal(pid) {
+      const p = products.find(x => x.id === pid);
+      if (!p) return;
+
+      document.getElementById("editProductId").value = p.id;
+      document.getElementById("pName").value = p.name;
+      document.getElementById("pSku").value = p.sku;
+      document.getElementById("pCategory").value = p.category;
+      document.getElementById("pCost").value = p.cost;
+      document.getElementById("pPrice").value = p.price;
+      document.getElementById("pStock").value = p.stock;
+      document.getElementById("pStock").disabled = false;
+      document.getElementById("pReorder").value = p.reorder_level;
+      document.getElementById("productModalTitle").textContent = "Edit Product: " + p.name;
+      calcMarginPreview();
+      openModal("productModal");
+    }
+
+    function calcMarginPreview() {
+      const cost = parseFloat(document.getElementById("pCost").value) || 0;
+      const price = parseFloat(document.getElementById("pPrice").value) || 0;
+      const previewBox = document.getElementById("marginPreviewBox");
+
+      if (price > 0) {
+        const profit = price - cost;
+        const margin = (profit / price * 100).toFixed(1);
+        previewBox.textContent = `Unit Profit: ₹${profit.toFixed(2)} (${margin}% gross margin)`;
+        previewBox.style.color = profit >= 0 ? '#34d399' : '#f87171';
+      } else {
+        previewBox.textContent = "";
+      }
+    }
+
+    function handleProductSubmit(e) {
+      e.preventDefault();
+      const pid = document.getElementById("editProductId").value;
+      const payload = {
+        name: document.getElementById("pName").value.trim(),
+        sku: document.getElementById("pSku").value.trim().toUpperCase(),
+        category: document.getElementById("pCategory").value.trim() || 'General',
+        cost: parseFloat(document.getElementById("pCost").value),
+        price: parseFloat(document.getElementById("pPrice").value),
+        stock: parseInt(document.getElementById("pStock").value),
+        reorder_level: parseInt(document.getElementById("pReorder").value)
+      };
+
+      const isEdit = !!pid;
+      const url = isEdit ? `/api/products/${pid}` : `/api/products`;
+      const method = isEdit ? 'PUT' : 'POST';
+
+      fetch(url, {
+        method: method,
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(payload)
+      })
+      .then(r => r.json())
+      .then(res => {
+        if (!res.ok) throw new Error(res.error || "Save failed");
+        closeModal("productModal");
+        showToast(isEdit ? "Product updated successfully!" : "Product created successfully!");
+        loadProducts();
+        loadAlerts();
+      })
+      .catch(err => {
+        showToast(err.message, "error");
+      });
+    }
+
+    function deleteProduct(pid, name) {
+      if (!confirm(`Are you sure you want to delete '${name}'? This cannot be undone.`)) return;
+
+      fetch(`/api/products/${pid}`, { method: 'DELETE' })
+        .then(r => r.json())
+        .then(res => {
+          if (!res.ok) throw new Error(res.error);
+          showToast(`Deleted '${name}'`);
+          loadProducts();
+          loadAlerts();
+        })
+        .catch(err => showToast(err.message, "error"));
+    }
+
+    // Restock Modal
+    function openRestockModal(pid) {
+      const p = products.find(x => x.id === pid);
+      if (!p) return;
+
+      document.getElementById("restockProductId").value = p.id;
+      document.getElementById("restockProductName").textContent = p.name;
+      document.getElementById("restockProductSku").textContent = p.sku;
+      document.getElementById("restockCurrentStock").textContent = p.stock;
+      document.getElementById("restockReorderMin").textContent = p.reorder_level;
+      document.getElementById("restockQty").value = Math.max(1, (p.reorder_level * 2) - p.stock);
+      document.getElementById("restockCost").value = "";
+      document.getElementById("restockNotes").value = "";
+      openModal("restockModal");
+    }
+
+    function handleRestockSubmit(e) {
+      e.preventDefault();
+      const pid = parseInt(document.getElementById("restockProductId").value);
+      const qty = parseInt(document.getElementById("restockQty").value);
+      const costVal = document.getElementById("restockCost").value.trim();
+      const notes = document.getElementById("restockNotes").value.trim();
+
+      const payload = { product_id: pid, quantity: qty, notes: notes };
+      if (costVal) payload.unit_cost = parseFloat(costVal);
+
+      fetch("/api/restock", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(payload)
+      })
+      .then(r => r.json())
+      .then(res => {
+        if (!res.ok) throw new Error(res.error);
+        closeModal("restockModal");
+        showToast(`Restocked ${qty} units! New stock: ${res.new_stock}`);
+        loadProducts();
+        loadAlerts();
+        loadForecast();
+      })
+      .catch(err => showToast(err.message, "error"));
+    }
+
+    // Movements Modal (Audit Log)
+    function openMovementsModal(pid) {
+      openModal("movementsModal");
+      const tbody = document.getElementById("movementsTableBody");
+      tbody.innerHTML = `<tr><td colspan="7" style="text-align:center; padding:2rem;">Fetching movement ledger...</td></tr>`;
+
+      fetch(`/api/products/${pid}/movements`)
+        .then(r => r.json())
+        .then(res => {
+          if (!res.ok) throw new Error(res.error);
+          document.getElementById("movementsModalSub").textContent = `${res.product.name} (SKU: ${res.product.sku}) — Current Stock: ${res.product.stock}`;
+
+          if (!res.movements || res.movements.length === 0) {
+            tbody.innerHTML = `<tr><td colspan="7" style="text-align:center; padding:2rem; color:var(--text-dim);">No stock movement logs found for this item yet.</td></tr>`;
+            return;
+          }
+
+          tbody.innerHTML = res.movements.map(m => {
+            const isPos = m.quantity > 0;
+            const typeBadge = m.movement_type === 'restock' ? `<span style="color:#34d399; font-weight:700;">Restock</span>` :
+                             (m.movement_type === 'sale' ? `<span style="color:#f87171; font-weight:700;">Sale</span>` :
+                             `<span style="color:#818cf8; font-weight:700;">${m.movement_type}</span>`);
+
+            return `
+              <tr>
+                <td style="font-size:0.8rem; color:var(--text-muted); font-family:'JetBrains Mono';">${m.created_at}</td>
+                <td>${typeBadge}</td>
+                <td style="font-family:'JetBrains Mono'; font-weight:700; color:${isPos ? '#34d399' : '#f87171'};">
+                  ${isPos ? '+' : ''}${m.quantity}
+                </td>
+                <td style="font-family:'JetBrains Mono'; color:var(--text-dim);">${m.prev_stock}</td>
+                <td style="font-family:'JetBrains Mono'; font-weight:700; color:#fff;">${m.new_stock}</td>
+                <td><span class="sku-badge">${m.reference_id || '-'}</span></td>
+                <td style="font-size:0.8rem; color:var(--text-muted);">${escapeHtml(m.notes || '')}</td>
+              </tr>
+            `;
+          }).join("");
+        })
+        .catch(err => showToast(err.message, "error"));
+    }
+
+    // -------------------------------------------------------------
+    // POINT OF SALE (POS REGISTER)
+    // -------------------------------------------------------------
+    function renderPosCatalog() {
+      const query = (document.getElementById("posSearchInput")?.value || "").toLowerCase();
+      const grid = document.getElementById("posProductGrid");
+      if (!grid) return;
+
+      const filtered = products.filter(p =>
+        !query || p.name.toLowerCase().includes(query) || p.sku.toLowerCase().includes(query) || p.category.toLowerCase().includes(query)
+      );
+
+      if (filtered.length === 0) {
+        grid.innerHTML = `<div style="grid-column: 1/-1; text-align:center; padding:3rem; color:var(--text-dim);">No items match search</div>`;
+        return;
+      }
+
+      grid.innerHTML = filtered.map(p => {
+        const isOut = p.stock <= 0;
+        return `
+          <div class="pos-card ${isOut ? 'out-of-stock' : ''}" onclick="${isOut ? '' : `addToCart(${p.id})`}">
+            <div>
+              <div class="pos-card-sku">${p.sku}</div>
+              <div class="pos-card-name">${escapeHtml(p.name)}</div>
+              <div style="font-size:0.75rem; color:var(--text-muted);">${escapeHtml(p.category)}</div>
+            </div>
+            <div class="pos-card-footer">
+              <span class="pos-card-price">₹${p.price.toFixed(2)}</span>
+              <span style="font-size:0.75rem; font-weight:700; color:${isOut ? '#f87171' : (p.stock <= p.reorder_level ? '#fbbf24' : '#9ca3af')};">
+                ${isOut ? 'Out of Stock' : `${p.stock} in stock`}
+              </span>
+            </div>
+          </div>
+        `;
+      }).join("");
+    }
+
+    function addToCart(pid) {
+      const p = products.find(x => x.id === pid);
+      if (!p) return;
+
+      const existing = cart.find(item => item.product.id === pid);
+      const currentCartQty = existing ? existing.quantity : 0;
+
+      if (currentCartQty + 1 > p.stock) {
+        showToast(`Cannot add more! Only ${p.stock} units of '${p.name}' in stock.`, "warning");
+        return;
+      }
+
+      if (existing) {
+        existing.quantity += 1;
+      } else {
+        cart.push({ product: p, quantity: 1 });
+      }
+      renderCart();
+    }
+
+    function updateCartQty(pid, delta) {
+      const item = cart.find(x => x.product.id === pid);
+      if (!item) return;
+
+      const newQty = item.quantity + delta;
+      if (newQty <= 0) {
+        cart = cart.filter(x => x.product.id !== pid);
+      } else {
+        if (newQty > item.product.stock) {
+          showToast(`Cannot exceed physical stock of ${item.product.stock} units!`, "warning");
+          return;
+        }
+        item.quantity = newQty;
+      }
+      renderCart();
+    }
+
+    function clearCart() {
+      cart = [];
+      renderCart();
+    }
+
+    function renderCart() {
+      const list = document.getElementById("cartItemsList");
+      const countLabel = document.getElementById("cartCountLabel");
+      const totalQtyElem = document.getElementById("cartTotalQty");
+      const estProfitElem = document.getElementById("cartEstProfit");
+      const grandTotalElem = document.getElementById("cartGrandTotal");
+      const submitBtn = document.getElementById("btnSubmitSale");
+
+      if (cart.length === 0) {
+        list.innerHTML = `<div style="text-align:center; padding: 2.5rem 1rem; color:var(--text-dim); font-size:0.85rem;">Cart is empty.<br>Click items on the left or scan SKU to add.</div>`;
+        countLabel.textContent = `0 line items`;
+        totalQtyElem.textContent = `0`;
+        estProfitElem.textContent = `₹0.00`;
+        grandTotalElem.textContent = `₹0.00`;
+        submitBtn.disabled = true;
+        return;
+      }
+
+      submitBtn.disabled = false;
+      let totalQty = 0;
+      let grandTotal = 0.0;
+      let totalProfit = 0.0;
+
+      list.innerHTML = cart.map(item => {
+        const subtotal = item.quantity * item.product.price;
+        const profit = item.quantity * (item.product.price - item.product.cost);
+        totalQty += item.quantity;
+        grandTotal += subtotal;
+        totalProfit += profit;
+
+        return `
+          <div class="cart-item">
+            <div class="cart-item-info">
+              <div class="cart-item-title">${escapeHtml(item.product.name)}</div>
+              <div class="cart-item-sub">
+                ₹${item.product.price.toFixed(2)} each | Stock: ${item.product.stock}
+              </div>
+            </div>
+            <div class="qty-controls">
+              <button class="qty-btn" onclick="updateCartQty(${item.product.id}, -1)">-</button>
+              <span class="qty-display">${item.quantity}</span>
+              <button class="qty-btn" onclick="updateCartQty(${item.product.id}, 1)">+</button>
+            </div>
+            <div style="text-align:right; min-width:70px;">
+              <div style="font-family:'JetBrains Mono'; font-weight:700; color:#fff;">₹${subtotal.toFixed(2)}</div>
+              <button style="background:none; border:none; color:var(--text-dim); cursor:pointer; font-size:0.75rem;" onclick="updateCartQty(${item.product.id}, -9999)">Remove</button>
+            </div>
+          </div>
+        `;
+      }).join("");
+
+      countLabel.textContent = `${cart.length} line item${cart.length > 1 ? 's' : ''}`;
+      totalQtyElem.textContent = totalQty;
+      estProfitElem.textContent = `₹${totalProfit.toFixed(2)}`;
+      grandTotalElem.textContent = `₹${grandTotal.toFixed(2)}`;
+    }
+
+    function submitSale() {
+      if (cart.length === 0) {
+        showToast("Add items to cart before completing sale", "warning");
+        return;
+      }
+
+      const payload = {
+        customer_name: document.getElementById("posCustomerName").value.trim() || 'Walk-in Customer',
+        payment_method: document.getElementById("posPaymentMethod").value,
+        notes: document.getElementById("posSaleNotes").value.trim() || 'Counter register sale',
+        items: cart.map(it => ({
+          product_id: it.product.id,
+          quantity: it.quantity,
+          unit_price: it.product.price
+        }))
+      };
+
+      const btn = document.getElementById("btnSubmitSale");
+      btn.disabled = true;
+      btn.textContent = "Processing & Validating Stock...";
+
+      fetch("/api/sales", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(payload)
+      })
+      .then(r => r.json().then(data => ({ status: r.status, data })))
+      .then(({ status, data }) => {
+        btn.disabled = false;
+        btn.textContent = "Complete Sale & Print Invoice";
+
+        if (status >= 400 || !data.ok) {
+          // CRITICAL CHECK: Handles stock rejection
+          showToast(data.error || "Sale was rejected by backend", "error");
+          return;
+        }
+
+        showToast(`Sale recorded! Invoice: ${data.invoice_no}`, "success");
+        clearCart();
+        loadProducts();
+        loadAlerts();
+        loadReport();
+        loadForecast();
+
+        // Immediately open printable invoice
+        displayInvoiceReceipt(data.sale);
+      })
+      .catch(err => {
+        btn.disabled = false;
+        btn.textContent = "Complete Sale & Print Invoice";
+        showToast(err.message, "error");
+      });
+    }
+
+    // Invoice Receipt Rendering
+    function displayInvoiceReceipt(sale) {
+      document.getElementById("invNumber").textContent = sale.invoice_no;
+      document.getElementById("invCustomer").textContent = sale.customer_name || 'Walk-in Customer';
+      document.getElementById("invDate").textContent = sale.created_at;
+      document.getElementById("invPayment").textContent = sale.payment_method || 'Cash';
+      document.getElementById("invGrandTotal").textContent = `₹${parseFloat(sale.total_amount).toFixed(2)}`;
+
+      const tbody = document.getElementById("invItemsBody");
+      tbody.innerHTML = (sale.items || []).map(it => `
+        <tr>
+          <td>
+            <strong>${escapeHtml(it.product_name)}</strong><br>
+            <span style="font-size:0.75rem; color:#6b7280;">SKU: ${it.sku || '-'}</span>
+          </td>
+          <td class="num">${it.quantity}</td>
+          <td class="num">₹${parseFloat(it.unit_price).toFixed(2)}</td>
+          <td class="num">₹${parseFloat(it.subtotal).toFixed(2)}</td>
+        </tr>
+      `).join("");
+
+      openModal("invoiceModal");
+    }
+
+    function viewPastSaleInvoice(sid) {
+      fetch(`/api/sales/${sid}`)
+        .then(r => r.json())
+        .then(res => {
+          if (!res.ok) throw new Error(res.error);
+          displayInvoiceReceipt(res.sale);
+        })
+        .catch(err => showToast(err.message, "error"));
+    }
+
+    // -------------------------------------------------------------
+    // LOW-STOCK ALERTS
+    // -------------------------------------------------------------
+    function loadAlerts() {
+      fetch("/api/alerts")
+        .then(r => r.json())
+        .then(res => {
+          if (!res.ok) throw new Error(res.error);
+          renderAlertsTable(res.alerts || []);
+        })
+        .catch(err => console.error(err));
+    }
+
+    function renderAlertsTable(alerts) {
+      const tbody = document.getElementById("alertsTableBody");
+      if (!alerts || alerts.length === 0) {
+        tbody.innerHTML = `<tr><td colspan="9" style="text-align:center; padding:3rem; color:#34d399; font-weight:600;">✓ Excellent! All catalog items are currently above their reorder thresholds.</td></tr>`;
+        return;
+      }
+
+      tbody.innerHTML = alerts.map(a => {
+        const isCritical = a.urgency === 'critical';
+        const badge = isCritical
+          ? `<span class="stock-badge out">CRITICAL: 0 Stock</span>`
+          : `<span class="stock-badge low">WARNING: Low Stock</span>`;
+
+        return `
+          <tr class="${isCritical ? 'row-danger' : 'row-warning'}">
+            <td>${badge}</td>
+            <td><span class="sku-badge">${a.sku}</span></td>
+            <td><strong style="color:#fff;">${escapeHtml(a.name)}</strong></td>
+            <td><span style="font-size:0.8rem; color:var(--text-muted);">${escapeHtml(a.category)}</span></td>
+            <td style="font-family:'JetBrains Mono'; font-weight:800; color:${isCritical ? '#f87171' : '#fbbf24'};">${a.stock} units</td>
+            <td style="font-family:'JetBrains Mono';">${a.reorder_level}</td>
+            <td style="font-family:'JetBrains Mono'; font-weight:700; color:#f87171;">+${a.deficit} needed</td>
+            <td style="font-family:'JetBrains Mono';">₹${parseFloat(a.cost).toFixed(2)}</td>
+            <td style="text-align:right;">
+              <button class="btn btn-success btn-sm" onclick="openRestockModal(${a.id})">
+                <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="23 4 23 10 17 10"></polyline><line x1="12" y1="20" x2="12" y2="4"></line></svg>
+                Quick Restock
+              </button>
+            </td>
+          </tr>
+        `;
+      }).join("");
+    }
+
+    // -------------------------------------------------------------
+    // SALES REPORTS & CHARTS
+    // -------------------------------------------------------------
+    function setReportPeriod(period) {
+      reportPeriod = period;
+      ['daily', 'weekly', 'monthly', 'all'].forEach(p => {
+        const btn = document.getElementById("btnPeriod" + p.charAt(0).toUpperCase() + p.slice(1));
+        if (btn) {
+          if (p === period) btn.classList.add("btn-primary");
+          else btn.classList.remove("btn-primary");
+        }
+      });
+      loadReport();
+    }
+
+    function loadReport() {
+      fetch(`/api/reports/sales?period=${reportPeriod}`)
+        .then(r => r.json())
+        .then(data => {
+          if (!data.ok) throw new Error(data.error);
+
+          // Update KPI Summary Cards
+          document.getElementById("repRevenue").textContent = `₹${data.summary.revenue.toFixed(2)}`;
+          document.getElementById("repCost").textContent = `₹${data.summary.cost.toFixed(2)}`;
+          document.getElementById("repProfit").textContent = `₹${data.summary.profit.toFixed(2)}`;
+          document.getElementById("repMargin").textContent = `${data.summary.profit_margin_pct}%`;
+          document.getElementById("repSalesCount").textContent = `${data.summary.total_sales_count} total sales transactions`;
+
+          // Render Trend Chart
+          renderSalesChart(data.daily_trend || []);
+
+          // Render Top 5 Items
+          renderTopItems(data.top_5_items || []);
+
+          // Render Recent Sales Table
+          renderRecentSalesTable(data.recent_sales || []);
+        })
+        .catch(err => console.error(err));
+    }
+
+    function renderSalesChart(trend) {
+      const ctx = document.getElementById("salesTrendChart");
+      if (!ctx) return;
+
+      const labels = trend.map(t => t.sale_date);
+      const revenues = trend.map(t => t.daily_revenue);
+      const profits = trend.map(t => t.daily_profit);
+
+      if (salesChartInstance) {
+        salesChartInstance.destroy();
+      }
+
+      salesChartInstance = new Chart(ctx, {
+        type: 'bar',
+        data: {
+          labels: labels.length ? labels : ['Today'],
+          datasets: [
+            {
+              label: 'Revenue (₹)',
+              data: revenues.length ? revenues : [0],
+              backgroundColor: 'rgba(99, 102, 241, 0.7)',
+              borderRadius: 6
+            },
+            {
+              label: 'Gross Profit (₹)',
+              data: profits.length ? profits : [0],
+              backgroundColor: 'rgba(16, 185, 129, 0.8)',
+              borderRadius: 6
+            }
+          ]
+        },
+        options: {
+          responsive: true,
+          maintainAspectRatio: false,
+          plugins: {
+            legend: { labels: { color: '#9ca3af' } }
+          },
+          scales: {
+            x: {
+              grid: { color: 'rgba(255, 255, 255, 0.05)' },
+              ticks: { color: '#9ca3af' }
+            },
+            y: {
+              grid: { color: 'rgba(255, 255, 255, 0.05)' },
+              ticks: { color: '#9ca3af' }
+            }
+          }
+        }
+      });
+    }
+
+    function renderTopItems(items) {
+      const container = document.getElementById("topItemsList");
+      if (!items || items.length === 0) {
+        container.innerHTML = `<div style="text-align:center; padding:2rem; color:var(--text-dim);">No items sold in this timeframe.</div>`;
+        return;
+      }
+
+      container.innerHTML = items.map((it, idx) => `
+        <div class="top-item-row">
+          <div style="display:flex; align-items:center;">
+            <div class="rank-pill">${idx + 1}</div>
+            <div>
+              <strong style="color:#fff; font-size:0.9rem;">${escapeHtml(it.product_name)}</strong>
+              <div style="font-size:0.75rem; color:var(--text-dim); font-family:'JetBrains Mono';">${it.sku}</div>
+            </div>
+          </div>
+          <div style="text-align:right;">
+            <div style="font-weight:700; color:#34d399; font-family:'JetBrains Mono';">₹${it.total_revenue.toFixed(2)}</div>
+            <div style="font-size:0.75rem; color:var(--text-muted);">${it.total_qty} units sold (₹${it.total_profit.toFixed(2)} profit)</div>
+          </div>
+        </div>
+      `).join("");
+    }
+
+    function renderRecentSalesTable(sales) {
+      const tbody = document.getElementById("recentSalesTableBody");
+      if (!sales || sales.length === 0) {
+        tbody.innerHTML = `<tr><td colspan="8" style="text-align:center; padding:2rem; color:var(--text-dim);">No transactions found</td></tr>`;
+        return;
+      }
+
+      tbody.innerHTML = sales.map(s => {
+        const itemsSummary = (s.items || []).map(i => `${i.product_name} (${i.quantity}x)`).join(", ");
+        return `
+          <tr>
+            <td><span class="sku-badge">${s.invoice_no}</span></td>
+            <td style="font-size:0.8rem; color:var(--text-muted); font-family:'JetBrains Mono';">${s.created_at}</td>
+            <td><strong>${escapeHtml(s.customer_name || 'Walk-in')}</strong></td>
+            <td><span style="font-size:0.75rem; background:rgba(255,255,255,0.06); padding:2px 6px; border-radius:4px;">${s.payment_method}</span></td>
+            <td style="font-size:0.8rem; max-width:250px; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;" title="${escapeHtml(itemsSummary)}">
+              ${escapeHtml(itemsSummary)}
+            </td>
+            <td style="font-family:'JetBrains Mono'; font-weight:700; color:#fff;">₹${parseFloat(s.total_amount).toFixed(2)}</td>
+            <td style="font-family:'JetBrains Mono'; color:#34d399;">₹${parseFloat(s.total_profit).toFixed(2)}</td>
+            <td style="text-align:right;">
+              <button class="btn btn-secondary btn-sm" onclick="viewPastSaleInvoice(${s.id})">
+                <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="6 9 6 2 18 2 18 9"></polyline><path d="M6 18H4a2 2 0 0 1-2-2v-5a2 2 0 0 1 2-2h16a2 2 0 0 1 2 2v5a2 2 0 0 1-2 2h-2"></path><rect x="6" y="14" width="12" height="8"></rect></svg>
+                View Invoice
+              </button>
+            </td>
+          </tr>
+        `;
+      }).join("");
+    }
+
+    // -------------------------------------------------------------
+    // DEMAND FORECAST (BONUS)
+    // -------------------------------------------------------------
+    function loadForecast() {
+      const windowDays = document.getElementById("forecastWindowSelect")?.value || 14;
+      fetch(`/api/forecast?days=${windowDays}`)
+        .then(r => r.json())
+        .then(res => {
+          if (!res.ok) throw new Error(res.error);
+          renderForecastTable(res.forecasts || []);
+        })
+        .catch(err => console.error(err));
+    }
+
+    function renderForecastTable(forecasts) {
+      const tbody = document.getElementById("forecastTableBody");
+      if (!forecasts || forecasts.length === 0) {
+        tbody.innerHTML = `<tr><td colspan="10" style="text-align:center; padding:2rem; color:var(--text-dim);">No products found to forecast.</td></tr>`;
+        return;
+      }
+
+      tbody.innerHTML = forecasts.map(f => {
+        let statusBadge = `<span class="stock-badge ok">Healthy</span>`;
+        let recAction = `Adequate stock on hand`;
+        let trClass = "";
+
+        if (f.stock === 0) {
+          statusBadge = `<span class="stock-badge out">DEPLETED</span>`;
+          recAction = `<strong style="color:#f87171;">Reorder Immediately (Stockout)</strong>`;
+          trClass = "row-danger";
+        } else if (f.days_until_stockout !== null && f.days_until_stockout <= 3) {
+          statusBadge = `<span class="stock-badge out">URGENT RISK</span>`;
+          recAction = `<strong style="color:#f87171;">Reorder within 1-2 days</strong>`;
+          trClass = "row-danger";
+        } else if (f.days_until_stockout !== null && f.days_until_stockout <= 7) {
+          statusBadge = `<span class="stock-badge low">WATCH CLOSELY</span>`;
+          recAction = `<span style="color:#fbbf24;">Reorder in ~${f.reorder_in_days || 0} days</span>`;
+          trClass = "row-warning";
+        }
+
+        const horizonText = f.stock === 0 ? '0 days (Out of Stock)' :
+                            (f.days_until_stockout !== null ? `~${f.days_until_stockout} days left` : 'No recent sales pace');
+
+        return `
+          <tr class="${trClass}">
+            <td>${statusBadge}</td>
+            <td><span class="sku-badge">${f.sku}</span></td>
+            <td><strong style="color:#fff;">${escapeHtml(f.name)}</strong></td>
+            <td style="font-family:'JetBrains Mono'; font-weight:700;">${f.stock}</td>
+            <td style="font-family:'JetBrains Mono'; color:var(--text-dim);">${f.reorder_level}</td>
+            <td style="font-family:'JetBrains Mono';">${f.units_sold_recent} units</td>
+            <td style="font-family:'JetBrains Mono'; color:#818cf8;">${f.avg_daily_sales} / day</td>
+            <td style="font-family:'JetBrains Mono'; font-weight:700;">${horizonText}</td>
+            <td>${recAction}</td>
+            <td style="text-align:right;">
+              <button class="btn btn-secondary btn-sm" onclick="openRestockModal(${f.id})">Restock</button>
+            </td>
+          </tr>
+        `;
+      }).join("");
+    }
+
+    // -------------------------------------------------------------
+    // BARCODE SCANNER MODAL (BONUS)
+    // -------------------------------------------------------------
+    function openScannerModal() {
+      openModal("scannerModal");
+      populateQuickSkuChips();
+    }
+
+    function closeScannerModal() {
+      stopCameraScanner();
+      closeModal("scannerModal");
+    }
+
+    function populateQuickSkuChips() {
+      const container = document.getElementById("quickSkuChips");
+      if (!container) return;
+      container.innerHTML = products.slice(0, 8).map(p => `
+        <span class="chip" onclick="simulateScan('${p.sku}')">${p.sku} (${p.name.split(' ')[0]})</span>
+      `).join("");
+    }
+
+    function simulateScan(sku) {
+      document.getElementById("manualSkuInput").value = sku;
+      handleManualSkuScan();
+    }
+
+    function handleManualSkuScan() {
+      const sku = (document.getElementById("manualSkuInput").value || "").trim().toUpperCase();
+      if (!sku) return;
+
+      const p = products.find(x => x.sku === sku);
+      if (!p) {
+        showToast(`SKU '${sku}' not found in product catalog!`, "error");
+        return;
+      }
+
+      addToCart(p.id);
+      showToast(`Scanned & added '${p.name}' to register!`);
+      closeScannerModal();
+      switchTab('pos');
+    }
+
+    function startCameraScanner() {
+      const readerElem = document.getElementById("barcodeReader");
+      if (!html5QrScanner && typeof Html5Qrcode !== 'undefined') {
+        html5QrScanner = new Html5Qrcode("barcodeReader");
+        html5QrScanner.start(
+          { facingMode: "environment" },
+          { fps: 10, qrbox: { width: 250, height: 250 } },
+          (decodedText) => {
+            simulateScan(decodedText.trim().toUpperCase());
+            stopCameraScanner();
+          },
+          (errorMessage) => { /* ignore decode misses */ }
+        ).catch(err => {
+          readerElem.innerHTML = `<div style="padding:1.5rem; text-align:center; color:#f87171;">Camera access not permitted or unavailable on this device.<br>Please use the manual SKU input or click test chips below.</div>`;
+        });
+      }
+    }
+
+    function stopCameraScanner() {
+      if (html5QrScanner) {
+        html5QrScanner.stop().catch(() => {}).then(() => {
+          html5QrScanner = null;
+          const readerElem = document.getElementById("barcodeReader");
+          if (readerElem) {
+            readerElem.innerHTML = `
+              <div style="text-align:center; padding:1rem;">
+                <svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="margin-bottom:0.5rem;"><path d="M23 19a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h4l2-3h6l2 3h4a2 2 0 0 1 2 2z"></path><circle cx="12" cy="13" r="4"></circle></svg><br>
+                <button class="btn btn-primary btn-sm" onclick="startCameraScanner()">Start Camera Scanner</button>
+              </div>
+            `;
+          }
+        });
+      }
+    }
+
+    // -------------------------------------------------------------
+    // CSV IMPORT / EXPORT (BONUS)
+    // -------------------------------------------------------------
+    function exportCSV() {
+      window.location.href = "/api/export/csv";
+    }
+
+    function openCSVModal() {
+      document.getElementById("csvFileInput").value = "";
+      document.getElementById("csvTextInput").value = "";
+      openModal("csvModal");
+    }
+
+    function handleCSVFileChosen(event) {
+      const file = event.target.files[0];
+      if (file) {
+        const reader = new FileReader();
+        reader.onload = (e) => {
+          document.getElementById("csvTextInput").value = e.target.result;
+        };
+        reader.readAsText(file);
+      }
+    }
+
+    function submitCSVImport() {
+      const text = document.getElementById("csvTextInput").value.trim();
+      if (!text) {
+        showToast("Please select a file or paste CSV text", "warning");
+        return;
+      }
+
+      fetch("/api/import/csv", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ csv_text: text })
+      })
+      .then(r => r.json())
+      .then(res => {
+        if (!res.ok) throw new Error(res.error);
+        closeModal("csvModal");
+        showToast(res.message);
+        loadProducts();
+        loadAlerts();
+      })
+      .catch(err => showToast(err.message, "error"));
+    }
+
+    // -------------------------------------------------------------
+    // UTILITY: DEMO SEED RESET
+    // -------------------------------------------------------------
+    function seedDemoData() {
+      if (!confirm("Reset and re-seed database with realistic store products and sales history?")) return;
+      fetch("/api/seed", { method: "POST" })
+        .then(r => r.json())
+        .then(res => {
+          showToast(res.message);
+          loadProducts();
+          loadAlerts();
+          loadReport();
+          loadForecast();
+        })
+        .catch(err => showToast(err.message, "error"));
+    }
+
+    function escapeHtml(str) {
+      if (!str) return '';
+      return String(str)
+        .replace(/&/g, '&amp;')
+        .replace(/</g, '&lt;')
+        .replace(/>/g, '&gt;')
+        .replace(/"/g, '&quot;')
+        .replace(/'/g, '&#39;');
+    }
+  </script>
+</body>
+</html>
