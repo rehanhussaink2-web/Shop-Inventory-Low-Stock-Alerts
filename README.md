@@ -76,20 +76,8 @@ Deployed on **Render** (any Python host works).
 
 > Note: free hosts may reset the filesystem on restart, so the SQLite data can reset. This is fine for a demo.
 
-## 🖼️ Screenshots
 
-<!-- Add screenshots here, e.g. -->
-<!-- ![Dashboard](screenshots/dashboard.png) -->
 
-## 👥 Team
-
-**Team Spark**
-
-| Name | Role |
-|------|------|
-| _Your name_ | _e.g. Backend_ |
-| _Teammate_ | _e.g. Frontend_ |
-| _Teammate_ | _e.g. Reports & testing_ |
 
 ## 🔮 Future Improvements
 
@@ -98,6 +86,3 @@ Deployed on **Render** (any Python host works).
 - SMS / WhatsApp notifications for low stock
 - Switch to PostgreSQL for hosted deployments
 
-## 📄 License
-
-Created for a hackathon. Add a license of your choice (e.g. MIT) if you plan to share it publicly.
