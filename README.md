@@ -1,56 +1,103 @@
-# Shop Inventory and Low-Stock Alerts
+# 🛒 Shop Inventory & Low-Stock Alerts
 
-> Inventory, sales and low-stock alerts for a small local shop.
+> A simple inventory, sales and low-stock alert system for small local shops — replacing the notebook with something accurate and automatic.
 
-Hack Day Haldia x GRID community - 6-hour build challenge
+Built for **Hack Day Haldia × GRID Community** (6-hour build challenge).
 
-**Repo:** `team-spark` | **Stack:** Python / Flask | **Difficulty:** Medium-Hard | **Time:** 6 hours
+![Python](https://img.shields.io/badge/Python-3.x-blue)
+![Flask](https://img.shields.io/badge/Flask-backend-black)
+![SQLite](https://img.shields.io/badge/SQLite-database-003B57)
 
-## Brief
-Small shops track stock in notebooks. Build a simple system that keeps stock accurate, records sales and warns before items run out.
+---
 
-## Core tasks (must-do)
-- [x] Product CRUD: name, SKU, category, cost, price, stock, reorder level
-- [x] Record a sale with several line items; it reduces stock and is rejected if stock is insufficient
-- [x] Restock entries and a stock-movement log per product
-- [x] Low-stock alert badge and list
-- [x] Sales report (daily / weekly): revenue, profit, top 5 items
-- [x] Search, sort and filter the product table
-- [x] Persist everything in SQLite (helper already in app.py)
+## 📌 Problem
 
-## Bonus tasks (only after the core works)
-- [x] CSV import / export
-- [x] Moving-average demand forecast: 'reorder in N days'
-- [x] Printable invoice with invoice numbers
-- [x] Barcode scanning with the phone camera
+Small shopkeepers usually track stock in notebooks. Counts drift, sales go unrecorded, and items run out without warning. This app keeps stock accurate, records every sale, and warns the owner **before** an item runs out.
 
-## What is already here
-- `index.html` - base page that pings `/api/health`
-- `app.py` - Flask app with a SQLite helper (`db()`, `init_db()`), `/api/health` and TODO endpoint stubs (they return 501 until you implement them)
-- `requirements.txt` - `flask`, `gunicorn`
+## ✨ Features
 
-## Run locally
-```bash
-pip install -r requirements.txt
-python app.py   # then open http://127.0.0.1:5000
+### Core
+- **Product management (CRUD)** — name, SKU, category, cost price, selling price, stock and reorder level
+- **Record sales** — multiple line items in one sale; stock is reduced automatically and the sale is rejected if stock is insufficient
+- **Restock entries** — add incoming stock and keep a **stock-movement log** for every product
+- **Low-stock alerts** — alert badge plus a list of items at or below their reorder level
+- **Sales reports** — daily / weekly revenue, profit and top 5 selling items
+- **Search, sort & filter** — find products quickly in the product table
+- **Persistent storage** — everything is saved in SQLite
+
+### Bonus *(list only what you actually built)*
+- [ ] CSV import / export
+- [ ] Moving-average demand forecast ("reorder in N days")
+- [ ] Printable invoices with invoice numbers
+- [ ] Barcode scanning with the phone camera
+
+## 🧰 Tech Stack
+
+| Layer     | Technology                  |
+|-----------|-----------------------------|
+| Backend   | Python, Flask               |
+| Database  | SQLite                      |
+| Frontend  | HTML, CSS, JavaScript (`index.html`) |
+| Server    | Gunicorn (production)       |
+
+## 📁 Project Structure
+
+```
+.
+├── app.py            # Flask app, database helpers and API endpoints
+├── index.html        # Frontend UI
+├── requirements.txt  # Python dependencies
+├── data.db           # SQLite database
+└── README.md
 ```
 
-## Deploy
-Any Python host works (for example Render or PythonAnywhere). Start command: `gunicorn app:app`. Free hosts may reset the filesystem on restart, so the SQLite file can reset - fine for a demo.
+## 🚀 Run Locally
 
-## Suggested pacing
-- Hour 1: read this README, agree on a plan and split the work
-- Hours 2-4: build the core tasks
-- Hour 5: integrate, polish, then bonus tasks if time allows
-- Hour 6: deploy, open the Pull Request, submit on the MLH platform (OrganizerHQ)
+```bash
+# 1. Clone the repository
+git clone https://github.com/rehanhussaink2-web/Shop-Inventory-Low-Stock-Alerts.git
+cd Shop-Inventory-Low-Stock-Alerts
 
-## Submission checklist
-- [ ] All core tasks work end to end
-- [ ] Project is deployed and the live link opens
-- [ ] Pull Request created on the Voyage GitHub repository assigned to your team
-- [ ] Project submitted on the MLH platform (OrganizerHQ) - instructions are shared at the start of the event
+# 2. Install dependencies
+pip install -r requirements.txt
 
-## Rules
-- Build new features on top of this starter project and integrate them.
-- Teams of 3-4; every member must be present.
-- AI tools and open-source / open-weight models are fully allowed.
+# 3. Start the app
+python app.py
+```
+
+Then open **http://127.0.0.1:5000** in your browser.
+
+## ☁️ Deployment
+
+Deployed on **Render** (any Python host works).
+
+- **Build command:** `pip install -r requirements.txt`
+- **Start command:** `gunicorn app:app`
+
+> Note: free hosts may reset the filesystem on restart, so the SQLite data can reset. This is fine for a demo.
+
+## 🖼️ Screenshots
+
+<!-- Add screenshots here, e.g. -->
+<!-- ![Dashboard](screenshots/dashboard.png) -->
+
+## 👥 Team
+
+**Team Spark**
+
+| Name | Role |
+|------|------|
+| _Your name_ | _e.g. Backend_ |
+| _Teammate_ | _e.g. Frontend_ |
+| _Teammate_ | _e.g. Reports & testing_ |
+
+## 🔮 Future Improvements
+
+- User login for shop owners and staff
+- Supplier management and purchase orders
+- SMS / WhatsApp notifications for low stock
+- Switch to PostgreSQL for hosted deployments
+
+## 📄 License
+
+Created for a hackathon. Add a license of your choice (e.g. MIT) if you plan to share it publicly.
